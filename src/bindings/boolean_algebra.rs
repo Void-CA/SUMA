@@ -4,10 +4,15 @@ use pyo3::wrap_pyfunction;
 // Importa el core
 use crate::core::boolean_algebra::truth_table;
 
-pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let func = wrap_pyfunction!(generate_truth_table, m)?;
-    m.add_function(func)?;
+pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Crea submódulo
+    let submodule = PyModule::new(parent.py(), "boolean_algebra")?;
 
+    // Añade funciones
+    submodule.add_function(wrap_pyfunction!(generate_truth_table, &submodule)?)?;
+
+    // Agrega el submódulo al módulo raíz
+    parent.add_submodule(&submodule)?;
     Ok(())
 }
 

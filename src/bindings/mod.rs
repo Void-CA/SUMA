@@ -1,9 +1,11 @@
 use pyo3::prelude::*;
+use pyo3::types::PyModule;
 
 pub mod boolean_algebra;
+pub mod matrixes;
 
-pub fn get_module(py: Python) -> PyResult<Bound<'_, PyModule>> {
-    let module = PyModule::new(py, "boolean_algebra")?;
-    boolean_algebra::register(&module)?;
-    Ok(module)
+pub fn register_modules(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+    boolean_algebra::register(parent)?;
+
+    Ok(())
 }
