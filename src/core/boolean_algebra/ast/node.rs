@@ -132,34 +132,96 @@ impl Node {
         }
     }
     
-    /// Convierte el AST a una representación infija (notación tradicional)
-    pub fn to_infix_notation(&self) -> String {
+    pub fn to_infix_notation_ascii(&self) -> String {
         match self {
             Node::Variable(name) => name.clone(),
             Node::And(left, right) => {
-                format!("({} ∧ {})", left.to_infix_notation(), right.to_infix_notation())
+                format!("({} & {})", left.to_infix_notation_ascii(), right.to_infix_notation_ascii())
             }
             Node::Or(left, right) => {
-                format!("({} ∨ {})", left.to_infix_notation(), right.to_infix_notation())
+                format!("({} | {})", left.to_infix_notation_ascii(), right.to_infix_notation_ascii())
             }
             Node::Not(inner) => {
-                format!("¬{}", inner.to_infix_notation())
+                format!("~{}", inner.to_infix_notation_ascii())
             }
             Node::Constant(value) => value.to_string(),
             Node::Xor(left, right) => {
-                format!("({} ⊕ {})", left.to_infix_notation(), right.to_infix_notation())
+                format!("({} ^ {})", left.to_infix_notation_ascii(), right.to_infix_notation_ascii())
             }
             Node::Implies(left, right) => {
-                format!("({} → {})", left.to_infix_notation(), right.to_infix_notation())
+                format!("({} -> {})", left.to_infix_notation_ascii(), right.to_infix_notation_ascii())
             }
             Node::Iff(left, right) => {
-                format!("({} ↔ {})", left.to_infix_notation(), right.to_infix_notation())
+                format!("({} <-> {})", left.to_infix_notation_ascii(), right.to_infix_notation_ascii())
             }
             Node::Nand(left, right) => {
-                format!("¬({} ∧ {})", left.to_infix_notation(), right.to_infix_notation())
+                format!("~({} & {})", left.to_infix_notation_ascii(), right.to_infix_notation_ascii())
             }
             Node::Nor(left, right) => {
-                format!("¬({} ∨ {})", left.to_infix_notation(), right.to_infix_notation())
+                format!("~({} | {})", left.to_infix_notation_ascii(), right.to_infix_notation_ascii())
+            }
+        }
+    }
+
+    pub fn to_infix_notation_text(&self) -> String {
+        match self {
+            Node::Variable(name) => name.clone(),
+            Node::And(left, right) => {
+                format!("({} and {})", left.to_infix_notation_text(), right.to_infix_notation_text())
+            }
+            Node::Or(left, right) => {
+                format!("({} or {})", left.to_infix_notation_text(), right.to_infix_notation_text())
+            }
+            Node::Not(inner) => {
+                format!("not {}", inner.to_infix_notation_text())
+            }
+            Node::Constant(value) => value.to_string(),
+            Node::Xor(left, right) => {
+                format!("({} xor {})", left.to_infix_notation_text(), right.to_infix_notation_text())
+            }
+            Node::Implies(left, right) => {
+                format!("({} implies {})", left.to_infix_notation_text(), right.to_infix_notation_text())
+            }
+            Node::Iff(left, right) => {
+                format!("({} biconditional {})", left.to_infix_notation_text(), right.to_infix_notation_text())
+            }
+            Node::Nand(left, right) => {
+                format!("not({} and {})", left.to_infix_notation_text(), right.to_infix_notation_text())
+            }
+            Node::Nor(left, right) => {
+                format!("not({} or {})", left.to_infix_notation_text(), right.to_infix_notation_text())
+            }
+        }
+    }
+
+    /// Convierte el AST a una representación infija (notación tradicional)
+    pub fn to_infix_notation_unicode(&self) -> String {
+        match self {
+            Node::Variable(name) => name.clone(),
+            Node::And(left, right) => {
+                format!("({} ∧ {})", left.to_infix_notation_unicode(), right.to_infix_notation_unicode())
+            }
+            Node::Or(left, right) => {
+                format!("({} ∨ {})", left.to_infix_notation_unicode(), right.to_infix_notation_unicode())
+            }
+            Node::Not(inner) => {
+                format!("¬{}", inner.to_infix_notation_unicode())
+            }
+            Node::Constant(value) => value.to_string(),
+            Node::Xor(left, right) => {
+                format!("({} ⊕ {})", left.to_infix_notation_unicode(), right.to_infix_notation_unicode())
+            }
+            Node::Implies(left, right) => {
+                format!("({} → {})", left.to_infix_notation_unicode(), right.to_infix_notation_unicode())
+            }
+            Node::Iff(left, right) => {
+                format!("({} ↔ {})", left.to_infix_notation_unicode(), right.to_infix_notation_unicode())
+            }
+            Node::Nand(left, right) => {
+                format!("¬({} ∧ {})", left.to_infix_notation_unicode(), right.to_infix_notation_unicode())
+            }
+            Node::Nor(left, right) => {
+                format!("¬({} ∨ {})", left.to_infix_notation_unicode(), right.to_infix_notation_unicode())
             }
         }
     }
@@ -184,80 +246,62 @@ impl Node {
         }
     }
 
-    pub fn extract_subexpressions(&self, expressions: &mut Vec<String>) {
+    pub fn collect_subexprs(&self, list: &mut Vec<(String, Node)>) {
         match self {
-            Node::Variable(_) | Node::Constant(_) => {
-                // No hacer nada para variables y constantes
+            Node::Variable(name) => {
+                list.push((name.clone(), self.clone()));
             }
-            Node::Not(expr) => {
-                let expr_str = expr.to_string();
-                expressions.push(format!("NOT {}", expr_str));
-                expressions.push(expr_str);
-                expr.extract_subexpressions(expressions);
+            Node::Constant(value) => {
+                list.push((value.to_string(), self.clone()));
+            }
+            Node::Not(child) => {
+                child.collect_subexprs(list);
+                let label = format!("not {}", child.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
             Node::And(left, right) => {
-                let left_str = left.to_string();
-                let right_str = right.to_string();
-                expressions.push(format!("({} AND {})", left_str, right_str));
-                expressions.push(left_str.clone());
-                expressions.push(right_str.clone());
-                left.extract_subexpressions(expressions);
-                right.extract_subexpressions(expressions);
+                left.collect_subexprs(list);
+                right.collect_subexprs(list);
+                let label = format!("{} and {}", left.to_infix_notation_text(), right.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
             Node::Or(left, right) => {
-                let left_str = left.to_string();
-                let right_str = right.to_string();
-                expressions.push(format!("({} OR {})", left_str, right_str));
-                expressions.push(left_str.clone());
-                expressions.push(right_str.clone());
-                left.extract_subexpressions(expressions);
-                right.extract_subexpressions(expressions);
+                left.collect_subexprs(list);
+                right.collect_subexprs(list);
+                let label = format!("{} or {}", left.to_infix_notation_text(), right.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
             Node::Xor(left, right) => {
-                let left_str = left.to_string();
-                let right_str = right.to_string();
-                expressions.push(format!("({} XOR {})", left_str, right_str));
-                expressions.push(left_str.clone());
-                expressions.push(right_str.clone());
-                left.extract_subexpressions(expressions);
-                right.extract_subexpressions(expressions);
+                left.collect_subexprs(list);
+                right.collect_subexprs(list);
+                let label = format!("{} xor {}", left.to_infix_notation_text(), right.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
             Node::Implies(left, right) => {
-                let left_str = left.to_string();
-                let right_str = right.to_string();
-                expressions.push(format!("({} IMPLIES {})", left_str, right_str));
-                expressions.push(left_str.clone());
-                expressions.push(right_str.clone());
-                left.extract_subexpressions(expressions);
-                right.extract_subexpressions(expressions);
+                left.collect_subexprs(list);
+                right.collect_subexprs(list);
+                let label = format!("{} implies {}", left.to_infix_notation_text(), right.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
             Node::Iff(left, right) => {
-                let left_str = left.to_string();
-                let right_str = right.to_string();
-                expressions.push(format!("({} IFF {})", left_str, right_str));
-                expressions.push(left_str.clone());
-                expressions.push(right_str.clone());
-                left.extract_subexpressions(expressions);
-                right.extract_subexpressions(expressions);
+                left.collect_subexprs(list);
+                right.collect_subexprs(list);
+                let label = format!("{} iff {}", left.to_infix_notation_text(), right.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
             Node::Nand(left, right) => {
-                let left_str = left.to_string();
-                let right_str = right.to_string();
-                expressions.push(format!("({} NAND {})", left_str, right_str));
-                expressions.push(left_str.clone());
-                expressions.push(right_str.clone());
-                left.extract_subexpressions(expressions);
-                right.extract_subexpressions(expressions);
+                left.collect_subexprs(list);
+                right.collect_subexprs(list);
+                let label = format!("{} nand {}", left.to_infix_notation_text(), right.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
             Node::Nor(left, right) => {
-                let left_str = left.to_string();
-                let right_str = right.to_string();
-                expressions.push(format!("({} NOR {})", left_str, right_str));
-                expressions.push(left_str.clone());
-                expressions.push(right_str.clone());
-                left.extract_subexpressions(expressions);
-                right.extract_subexpressions(expressions);
+                left.collect_subexprs(list);
+                right.collect_subexprs(list);
+                let label = format!("{} nor {}", left.to_infix_notation_text(), right.to_infix_notation_text());
+                list.push((label, self.clone()));
             }
+            _ => unimplemented!("Operador no soportado"),
         }
     }
 
@@ -266,7 +310,7 @@ impl Node {
 /// Implementación de Display para fácil debugging
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_infix_notation())
+        write!(f, "{}", self.to_infix_notation_text())
     }
 }
 
@@ -358,5 +402,71 @@ mod tests {
         
         assert_eq!(simple.complexity(), 0);
         assert_eq!(complex.complexity(), 3); // AND, OR, NOT
+        
+    }
+
+    #[test]
+    fn test_infix_notation() {
+        let expr = Node::and(
+            Node::var("A"),
+            Node::or(Node::var("B"), Node::not(Node::var("C")))
+        );
+        
+        let infix = expr.to_infix_notation_text();
+        assert_eq!(infix, "(A and (B or not C))");
+
+        let infix_unicode = expr.to_infix_notation_unicode();
+        assert_eq!(infix_unicode, "(A ∧ (B ∨ ¬C))");
+
+        let infix_ascii = expr.to_infix_notation_ascii();
+        assert_eq!(infix_ascii, "(A & (B | ~C))");
+    }
+
+    #[test]
+    fn test_prefix_notation() {
+        let expr = Node::and(
+            Node::var("A"),
+            Node::or(Node::var("B"), Node::not(Node::var("C")))
+        );
+        
+        let prefix = expr.to_prefix_notation();
+        assert_eq!(prefix, "AND(A, OR(B, NOT(C)))");
+    }
+
+    #[test]
+    fn test_collect_subexprs() {
+        let expr = Node::and(
+            Node::var("A"),
+            Node::or(Node::var("B"), Node::not(Node::var("C")))
+        );
+
+        let mut subexprs = Vec::new();
+        expr.collect_subexprs(&mut subexprs);
+
+        let labels: Vec<String> = subexprs.iter().map(|(label, _)| label.clone()).collect();
+        assert!(labels.contains(&"A".to_string()));
+        assert!(labels.contains(&"B".to_string()));
+        assert!(labels.contains(&"C".to_string()));
+        assert!(labels.contains(&"not C".to_string()));
+        assert!(labels.contains(&"B or not C".to_string()));
+        assert!(labels.contains(&"A and (B or not C)".to_string()));
+    }
+
+    #[test]
+    fn test_convenience_methods() {
+        let expr = Node::and(
+            Node::var("A"),
+            Node::or(Node::var("B"), Node::not(Node::var("C")))
+        );
+
+        let expected = Node::And(
+            Box::new(Node::Variable("A".to_string())),
+            Box::new(Node::Or(
+                Box::new(Node::Variable("B".to_string())),
+                Box::new(Node::Not(Box::new(Node::Variable("C".to_string()))))
+            ))
+        );
+
+        assert_eq!(expr, expected);
     }
 }

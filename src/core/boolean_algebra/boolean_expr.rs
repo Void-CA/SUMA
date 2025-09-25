@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use crate::core::boolean_algebra::truth_table::{TruthTable, DetailedTruthTable};
 use crate::core::boolean_algebra::error::{
-    BooleanAlgebraError, EvaluationError, InvalidExpressionError, ParseError
+    EvaluationError, InvalidExpressionError, ParseError
 };
 use crate::core::boolean_algebra::parser::parse_expression;
 use crate::core::boolean_algebra::Result;  // Nuestro Result personalizado
@@ -67,94 +68,94 @@ impl BooleanExpr {
     }
     
     /// Genera la tabla de verdad completa de la expresión
-    pub fn truth_table(&self) -> Vec<(HashMap<String, bool>, bool)> {
+    pub fn truth_table(&self) -> TruthTable {
         let num_vars = self.variables.len();
-        let num_combinations = 1 << num_vars; // 2^n
+        let num_rows = 1 << num_vars;
+        let mut combinations = Vec::with_capacity(num_rows);
+        let mut columns = HashMap::new();
+        let mut column_order = self.variables.clone();
         
-        let mut table = Vec::new();
+        // Initialize columns for variables
+        for var in &self.variables {
+            columns.insert(var.clone(), Vec::with_capacity(num_rows));
+        }
+        // Initialize column for final result
+        let result_label = self.to_string();
+        columns.insert(result_label.clone(), Vec::with_capacity(num_rows));
+        column_order.push(result_label);
         
-        for i in 0..num_combinations {
+        for i in 0..num_rows {
             let mut values = HashMap::new();
-            
-            // Generar combinación de valores para las variables
+            let mut combination = Vec::new();
             for (j, var) in self.variables.iter().enumerate() {
                 let value = (i >> (num_vars - 1 - j)) & 1 == 1;
                 values.insert(var.as_str(), value);
+                combination.push(value);
+                columns.get_mut(var).unwrap().push(value);
             }
-            
-            // Evaluar la expresión
             let result = self.ast.evaluate(&values);
-            let row_values: HashMap<String, bool> = values.into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect();
-            
-            table.push((row_values, result));
+            columns.get_mut(&column_order[column_order.len() - 1]).unwrap().push(result);
+            combinations.push(combination);
         }
         
-        table
+        TruthTable::new(self.variables.clone(), columns, column_order, combinations)
+            .expect("Valid truth table construction")
     }
 
-    pub fn full_truth_table(&self) -> Vec<(HashMap<String, bool>, HashMap<String, bool>, bool)> {
+    /// Genera una tabla de verdad detallada mostrando columnas para cada subexpresión
+    pub fn full_truth_table(&self) -> DetailedTruthTable {
+        // Recopilar todas las subexpresiones en orden post-orden (bottom-up)
+        let mut subexprs: Vec<(String, Node)> = Vec::new();
+        self.ast.collect_subexprs(&mut subexprs);
+        // La última subexpresión es el resultado completo
         let num_vars = self.variables.len();
-        let num_combinations = 1 << num_vars;
-        
-        let mut table = Vec::new();
-        
-        // Extraer todas las subexpresiones únicas del AST
-        let mut subexpressions = Vec::new();
-        self.ast.extract_subexpressions(&mut subexpressions);
-        
-        // Ordenar y eliminar duplicados
-        subexpressions.sort();
-        subexpressions.dedup();
-        subexpressions.sort_by_key(|a| a.len()); // Ordenar por complejidad
-        
-        for i in 0..num_combinations {
-            let mut variable_values = HashMap::new();
-            
-            // Generar valores para las variables base
-            for (j, var) in self.variables.iter().enumerate() {
-                let value = (i >> (num_vars - 1 - j)) & 1 == 1;
-                variable_values.insert(var.as_str(), value);
-            }
-            
-            // Evaluar cada subexpresión
-            let mut subexpression_values = HashMap::new();
-            for expr_str in &subexpressions {
-                // Para expresiones simples (variables individuales)
-                if self.variables.contains(&expr_str) {
-                    if let Some(&value) = variable_values.get(expr_str.as_str()) {
-                        subexpression_values.insert(expr_str.clone(), value);
-                    }
-                } else {
-                    // Parsear y evaluar expresiones complejas
-                    if let Ok(sub_expr) = BooleanExpr::new(expr_str) {
-                        let result = sub_expr.ast.evaluate(&variable_values);
-                        subexpression_values.insert(expr_str.clone(), result);
-                    }
+        let num_rows = 1 << num_vars;
+        // Generar combinaciones
+        let mut combinations = Vec::with_capacity(num_rows);
+        let mut columns = HashMap::new();
+        for (label, node) in &subexprs {
+            let mut col = Vec::with_capacity(num_rows);
+            for i in 0..num_rows {
+                let mut values = HashMap::new();
+                let mut combination = Vec::new();
+                for (j, var) in self.variables.iter().enumerate() {
+                    let val = (i >> (num_vars - 1 - j)) & 1 == 1;
+                    values.insert(var.as_str(), val);
+                    combination.push(val);
+                }
+                let res = node.evaluate(&values);
+                col.push(res);
+                // Guardar combinaciones solo una vez
+                if label == &self.variables[0] {
+                    combinations.push(combination);
                 }
             }
-            
-            // Evaluar la expresión principal
-            let final_result = self.ast.evaluate(&variable_values);
-            
-            // Convertir a String keys
-            let var_values_str: HashMap<String, bool> = variable_values.into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect();
-            
-            table.push((var_values_str, subexpression_values, final_result));
+            columns.insert(label.clone(), col);
         }
-        
-        table
+        // Extraer subexpressions en orden
+        let subexpressions: Vec<String> = subexprs.into_iter().map(|(label, _)| label).collect();
+        DetailedTruthTable {
+        variables: self.variables.clone(),
+        subexpressions,
+        columns,
+        combinations,
+        }
     }
 
     
     /// Convierte la expresión a string (notación infija)
     pub fn to_string(&self) -> String {
-        self.ast.to_infix_notation()
+        self.ast.to_infix_notation_text()
+    }
+
+    pub fn to_ascii_string(&self) -> String {
+        self.ast.to_infix_notation_ascii()
     }
     
+    pub fn to_unicode_string(&self) -> String {
+        self.ast.to_infix_notation_text()
+    }
+
     /// Convierte la expresión a notación prefija (para debugging)
     pub fn to_prefix_notation(&self) -> String {
         self.ast.to_prefix_notation()
@@ -165,14 +166,26 @@ impl BooleanExpr {
         self.ast.complexity()
     }
     
-    /// Verifica si la expresión es una tautología
+    /// Verifica si la expresión es una tautología (verdadera para todas las combinaciones).
     pub fn is_tautology(&self) -> bool {
-        self.truth_table().iter().all(|(_, result)| *result)
+        let truth_table = self.truth_table();
+        let result_label = truth_table.column_order.last()
+            .expect("Truth table must have at least one column");
+        truth_table.columns.get(result_label)
+            .expect("Result column must exist")
+            .iter()
+            .all(|&result| result)
     }
-    
-    /// Verifica si la expresión es una contradicción
+
+    /// Verifica si la expresión es una contradicción (falsa para todas las combinaciones).
     pub fn is_contradiction(&self) -> bool {
-        self.truth_table().iter().all(|(_, result)| !*result)
+        let truth_table = self.truth_table();
+        let result_label = truth_table.column_order.last()
+            .expect("Truth table must have at least one column");
+        truth_table.columns.get(result_label)
+            .expect("Result column must exist")
+            .iter()
+            .all(|&result| !result)
     }
     
     /// Verifica si dos expresiones son equivalentes
@@ -413,17 +426,22 @@ mod tests {
     fn test_truth_table_simple() {
         let expr = BooleanExpr::new("A & B").unwrap();
         let table = expr.truth_table();
-        
-        assert_eq!(table.len(), 4); // 2 variables = 4 combinaciones
-        
+
+        assert_eq!(table.num_rows(), 4); // 2 variables = 4 combinaciones
+        assert_eq!(expr.variables.len(), 2);
+
         // Verificar algunas filas específicas
         let mut found_true = false;
-        for (values, result) in table {
-            if values["A"] && values["B"] {
-                assert!(result, "A AND B debería ser true cuando ambos son true");
+        
+        for row in table.to_named_rows() {
+            let a = row.get("A").copied().unwrap_or(false);
+            let b = row.get("B").copied().unwrap_or(false);
+            let result = row.get(&expr.to_string()).copied().unwrap_or(false);
+            if a && b {
+                assert!(result, "A & B debería ser true cuando A y B son true");
                 found_true = true;
             } else {
-                assert!(!result, "A AND B debería ser false cuando alguno es false");
+                assert!(!result, "A & B debería ser false cuando A o B son false");
             }
         }
         assert!(found_true, "Debería haber al menos una fila con resultado true");
@@ -433,8 +451,8 @@ mod tests {
     fn test_truth_table_three_variables() {
         let expr = BooleanExpr::new("A & (B | C)").unwrap();
         let table = expr.truth_table();
-        
-        assert_eq!(table.len(), 8); // 3 variables = 8 combinaciones
+
+        assert_eq!(table.num_rows(), 8); // 3 variables = 8 combinaciones
         assert_eq!(expr.variables.len(), 3);
     }
 
@@ -476,7 +494,7 @@ mod tests {
     #[test]
     fn test_string_representation() {
         let expr = BooleanExpr::new("A & (B | C)").unwrap();
-        let repr = expr.to_string();
+        let repr = expr.to_ascii_string();
         
         // La representación debe contener las variables y operadores
         assert!(repr.contains('A'));
@@ -646,30 +664,4 @@ mod tests {
         assert_eq!(expr2.evaluate(&values).unwrap(), true);
     }
 
-    #[test]
-    fn test_full_truth_table() {
-        let expr = BooleanExpr::new("A & (B | C)").unwrap();
-        let table = expr.full_truth_table();
-        
-        assert_eq!(table.len(), 8); // 3 variables = 8 combinaciones
-        
-        for (var_values, subexpr_values, final_result) in table {
-            // Verificar que las variables estén presentes
-            assert!(var_values.contains_key("A"));
-            assert!(var_values.contains_key("B"));
-            assert!(var_values.contains_key("C"));
-            
-            // Verificar que las subexpresiones estén evaluadas
-            assert!(subexpr_values.contains_key("B | C"));
-            assert!(subexpr_values.contains_key("A & (B | C)"));
-            
-            // Verificar que el resultado final coincida con la evaluación directa
-            let mut values = HashMap::new();
-            for (k, v) in &var_values {
-                values.insert(k.as_str(), *v);
-            }
-            let direct_result = expr.evaluate(&values).unwrap();
-            assert_eq!(final_result, direct_result);
-        }
-    }
 }

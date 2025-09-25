@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "suma_ulsa"
-version = "0.1.3"
+version = "0.1.4"
 description = "Sistema Universitario de Métodos Académicos (SUMA) - librería Python con backend en Rust"
 authors = [
     { name="Ari Castillo", email="castilloari282@gmail.com" }

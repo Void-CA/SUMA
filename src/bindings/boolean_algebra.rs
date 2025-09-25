@@ -1,84 +1,84 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyDict};
+use pyo3::types::{PyDict, PyAny};
 use pyo3::wrap_pyfunction;
 use std::collections::HashMap;
 
-use crate::core::boolean_algebra::BooleanExpr;
+use crate::bindings;
+use crate::core::boolean_algebra::{BooleanExpr, TruthTable};
 
-#[pyclass]
-pub struct TruthTable {
-    #[pyo3(get)]
-    pub variables: Vec<String>,
-    #[pyo3(get)]
-    pub combinations: Vec<Vec<bool>>,
-    #[pyo3(get)]
-    pub results: Vec<bool>,
+#[pyclass(name = "TruthTable")]
+pub struct PyTruthTable {
+    inner: TruthTable,
 }
 
 #[pymethods]
-impl TruthTable {
+impl PyTruthTable {
+    #[new]
+    pub fn new(
+        variables: Vec<String>,
+        columns: HashMap<String, Vec<bool>>,
+        column_order: Vec<String>,
+        combinations: Vec<Vec<bool>>,
+    ) -> PyResult<Self> {
+        let inner = TruthTable::new(variables, columns, column_order, combinations)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+        Ok(PyTruthTable { inner })
+    }
+
     pub fn to_pretty_string(&self) -> String {
-        if self.variables.is_empty() {
+        if self.inner.variables.is_empty() {
             return "Empty TruthTable".to_string();
         }
         
+        let max_len = self.inner.column_order.iter().map(|k| k.len()).max().unwrap_or(0).max(6);
         let mut output = String::new();
         
-        // Encabezado con nombres de variables
-        for var in &self.variables {
-            output.push_str(&format!("│ {:^8} ", var));
+        // Header with column names in order
+        for name in &self.inner.column_order {
+            output.push_str(&format!("│ {:^width$} ", name, width = max_len));
         }
-        // Header for the result column
-        output.push_str(&format!("│ {:^8} │\n", "Result"));
+        output.push_str("│\n");
         
-        // Línea separadora
-        for _ in &self.variables {
-            output.push_str("├──────────");
+        // Separator
+        for _ in &self.inner.column_order {
+            output.push_str(&format!("├{:─<width$}", "", width = max_len + 2));
         }
-        output.push_str("┼──────────┤\n");
+        output.push_str("┤\n");
         
-        // Filas de datos
-        for (i, row) in self.combinations.iter().enumerate() {
-            for &val in row {
-                output.push_str(&format!("│ {:^8} ", val));
+        // Rows
+        for i in 0..self.inner.combinations.len() {
+            for name in &self.inner.column_order {
+                let val = self.inner.columns.get(name).unwrap()[i];
+                output.push_str(&format!("│ {:^width$} ", val, width = max_len));
             }
-            output.push_str(&format!("│ {:^8} │\n", self.results[i]));
+            output.push_str("│\n");
         }
         
-        // Línea final
-        for _ in &self.variables {
-            output.push_str("└──────────");
+        // Bottom line
+        for _ in &self.inner.column_order {
+            output.push_str(&format!("└{:─<width$}", "", width = max_len + 2));
         }
-        output.push_str("┴──────────┘\n");
+        output.push_str("┘\n");
         
         output
     }
+
     fn to_polars(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let polars = py.import("polars")?;
-        
-        // Intentar diferentes métodos de construcción
         let data_dict = PyDict::new(py);
         
-        // Preparar los datos
-        for (i, var) in self.variables.iter().enumerate() {
-            let values: Vec<bool> = self.combinations.iter()
-                .map(|row| row[i])
-                .collect();
-            data_dict.set_item(var, values)?;
+        for name in &self.inner.column_order {
+            data_dict.set_item(name, self.inner.columns.get(name).unwrap())?;
         }
-        data_dict.set_item("result", &self.results)?;
         
-        // Método 1: polars.from_dict (recomendado)
         if let Ok(from_dict) = polars.getattr("from_dict") {
             return Ok(from_dict.call1((data_dict,))?.into());
         }
         
-        // Método 2: polars.DataFrame(dict)
         let dataframe = polars.getattr("DataFrame")?;
         Ok(dataframe.call1((data_dict,))?.into())
     }
-    
-    // Versión que retorna LazyFrame
+
     fn to_lazyframe(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let df = self.to_polars(py)?;
         Python::attach(|py| {
@@ -87,222 +87,194 @@ impl TruthTable {
             Ok(lazyframe.into())
         })
     }
-    
-    fn to_dict(&self) -> PyResult<Py<PyDict>> {
-        Python::attach(|py| {
-            let result = PyDict::new(py);
-            
-            // Diccionario con listas (formato columnar)
-            let column_dict = PyDict::new(py);
-            
-            for (i, var) in self.variables.iter().enumerate() {
-                let values: Vec<bool> = self.combinations.iter()
-                    .map(|row| row[i])
+
+    fn to_list(&self) -> Vec<Vec<bool>> {
+        self.inner.combinations.clone()
+    }
+
+    fn to_named_rows(&self) -> Vec<HashMap<String, bool>> {
+        self.inner.to_named_rows()
+    }
+
+    fn to_column_dict(&self) -> HashMap<String, Vec<bool>> {
+        self.inner.column_order.iter()
+            .map(|name| (name.clone(), self.inner.columns.get(name).unwrap().clone()))
+            .collect()
+    }
+
+    fn get_row(&self, index: usize) -> Option<HashMap<String, bool>> {
+        self.inner.get_row(index)
+    }
+
+    fn get_column(&self, variable: String) -> Option<Vec<bool>> {
+        self.inner.get_column(&variable)
+    }
+
+    #[pyo3(name = "filter_true")]
+    fn py_filter_true(&self) -> PyResult<Self> {
+        let result_label = self.inner.column_order.last()
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("No columns found"))?;
+        let assignments = self.inner.satisfiable_assignments(true, result_label);
+        let combinations: Vec<Vec<bool>> = assignments
+            .iter()
+            .map(|assignment| {
+                self.inner.variables
+                    .iter()
+                    .map(|var| *assignment.get(var).unwrap())
+                    .collect()
+            })
+            .collect();
+        let columns: HashMap<String, Vec<bool>> = self.inner.column_order.iter()
+            .map(|name| {
+                let values: Vec<bool> = assignments
+                    .iter()
+                    .map(|assignment| *assignment.get(name).unwrap())
                     .collect();
-                column_dict.set_item(var, values)?;
-            }
-            column_dict.set_item("result", &self.results)?;
-            
-            result.set_item("columns", column_dict)?;
-            result.set_item("variables", &self.variables)?;
-            result.set_item("row_count", self.combinations.len())?;
-            
-            Ok(result.into())
-        })
+                (name.clone(), values)
+            })
+            .collect();
+        let new_inner = TruthTable::new(
+            self.inner.variables.clone(),
+            columns,
+            self.inner.column_order.clone(),
+            combinations,
+        ).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+        Ok(PyTruthTable { inner: new_inner })
     }
-    
-    fn to_list(&self) -> Vec<HashMap<String, bool>> {
-        self.combinations.iter().enumerate().map(|(i, row)| {
-            let mut map = HashMap::new();
-            for (j, var) in self.variables.iter().enumerate() {
-                map.insert(var.clone(), row[j]);
-            }
-            map.insert("result".to_string(), self.results[i]);
-            map
-        }).collect()
+
+    #[pyo3(name = "filter_false")]
+    fn py_filter_false(&self) -> PyResult<Self> {
+        let result_label = self.inner.column_order.last()
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("No columns found"))?;
+        let assignments = self.inner.satisfiable_assignments(false, result_label);
+        let combinations: Vec<Vec<bool>> = assignments
+            .iter()
+            .map(|assignment| {
+                self.inner.variables
+                    .iter()
+                    .map(|var| *assignment.get(var).unwrap())
+                    .collect()
+            })
+            .collect();
+        let columns: HashMap<String, Vec<bool>> = self.inner.column_order.iter()
+            .map(|name| {
+                let values: Vec<bool> = assignments
+                    .iter()
+                    .map(|assignment| *assignment.get(name).unwrap())
+                    .collect();
+                (name.clone(), values)
+            })
+            .collect();
+        let new_inner = TruthTable::new(
+            self.inner.variables.clone(),
+            columns,
+            self.inner.column_order.clone(),
+            combinations,
+        ).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+        Ok(PyTruthTable { inner: new_inner })
     }
-    // Filtrar solo las combinaciones que son TRUE
-    fn filter_true(&self) -> Self {
-        let mut true_combinations = Vec::new();
-        let mut true_results = Vec::new();
-        
-        for (i, result) in self.results.iter().enumerate() {
-            if *result {
-                true_combinations.push(self.combinations[i].clone());
-                true_results.push(true);
+
+    fn satisfiable_assignments(&self, value: bool, py: Python<'_>) -> PyResult<Vec<Py<PyDict>>> {
+        let result_label = self.inner.column_order.last()
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("No columns found"))?;
+        let assignments = self.inner.satisfiable_assignments(value, result_label);
+        let mut result = Vec::new();
+        for assignment in assignments {
+            let dict = PyDict::new(py);
+            for name in &self.inner.column_order {
+                dict.set_item(name, assignment.get(name).unwrap())?;
             }
+            result.push(dict.into());
         }
-        
-        TruthTable {
-            variables: self.variables.clone(),
-            combinations: true_combinations,
-            results: true_results,
-        }
-    }
-    
-    fn filter_false(&self) -> Self {
-        let mut false_combinations = Vec::new();
-        let mut false_results = Vec::new();
-        
-        for (i, result) in self.results.iter().enumerate() {
-            if !*result {
-                false_combinations.push(self.combinations[i].clone());
-                false_results.push(false);
-            }
-        }
-        
-        TruthTable {
-            variables: self.variables.clone(),
-            combinations: false_combinations,
-            results: false_results,
-        }
+        Ok(result)
     }
 
     fn __str__(&self) -> String {
         self.to_pretty_string()
     }
-    
-    // Obtener estadísticas básicas
-    fn summary(&self) -> PyResult<Py<PyDict>> {
+
+    fn summary(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
         Python::attach(|py| {
-            let summary = PyDict::new(py);
-            
-            let true_count = self.results.iter().filter(|&&r| r).count();
-            let false_count = self.results.len() - true_count;
-            let total = self.results.len();
-            
-            summary.set_item("total_combinations", total)?;
-            summary.set_item("true_count", true_count)?;
-            summary.set_item("false_count", false_count)?;
-            summary.set_item("true_percentage", (true_count as f64 / total as f64) * 100.0)?;
-            
-            Ok(summary.into())
+            let dict = PyDict::new(py);
+            let result_label = self.inner.column_order.last()
+                .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("No columns found"))?;
+            let true_count = self.inner.columns.get(result_label).unwrap().iter().filter(|&&b| b).count() as f64;
+            let total = self.inner.combinations.len() as f64;
+            dict.set_item("num_variables", self.inner.variables.len())?;
+            dict.set_item("total_combinations", total)?;
+            dict.set_item("true_count", true_count)?;
+            dict.set_item("false_count", total - true_count)?;
+            dict.set_item("true_percentage", (true_count / total) * 100.0)?;
+            for var in &self.inner.variables {
+                let var_true_count = self.inner.columns.get(var).unwrap().iter().filter(|&&b| b).count() as f64;
+                dict.set_item(format!("{}_true_count", var), var_true_count)?;
+            }
+            Ok(dict.into())
         })
     }
-}
+    fn select_columns(&self, columns: Vec<String>) -> PyResult<Self> {
+        let columns_ref: Vec<&str> = columns.iter().map(|s| s.as_str()).collect();
+        let new_inner = self.inner.select_columns(&columns_ref)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+        Ok(PyTruthTable { inner: new_inner })
+    }
 
-#[pyclass]
-pub struct FullTruthTable {
-    #[pyo3(get)]
-    pub base_variables: Vec<String>,
-    #[pyo3(get)]
-    pub step_labels: Vec<String>,
-    #[pyo3(get)]
-    pub step_results: Vec<Vec<bool>>,
-}
+    /// Filters rows based on a Python callable applied to the specified column.
+    fn filter(&self, column: String, predicate: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Self> {
+        if !self.inner.columns.contains_key(&column) {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Column '{}' not found", column)));
+        }
+        let new_inner = self.inner.filter(&column, |val| {
+            predicate.call1((val,)).and_then(|res| res.is_truthy()).unwrap_or(false)
+        }).map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+        Ok(PyTruthTable { inner: new_inner })
+    }
 
-#[pymethods]
-impl FullTruthTable {
-    #[new]
-    fn new(base_variables: Vec<String>, step_labels: Vec<String>, step_results: Vec<Vec<bool>>) -> Self {
-        FullTruthTable {
-            base_variables,
-            step_labels,
-            step_results,
-        }
+    /// Checks if this truth table is equivalent to another based on result columns.
+    fn equivalent_to(&self, other: &Self) -> PyResult<bool> {
+        self.inner.equivalent_to(&other.inner)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))
     }
-    
-    #[getter]
-    fn base_combinations(&self) -> Vec<Vec<bool>> {
-        let num_base_vars = self.base_variables.len();
-        self.step_results.iter()
-            .map(|row| row[..num_base_vars].to_vec())
-            .collect()
+
+    /// Exports the truth table to CSV format.
+    fn to_csv(&self) -> String {
+        self.inner.to_csv()
     }
-    
-    #[getter]
-    fn final_results(&self) -> Vec<bool> {
-        self.step_results.iter()
-            .map(|row| *row.last().unwrap_or(&false))
-            .collect()
+
+    /// Exports the truth table to JSON format.
+    fn to_json(&self) -> String {
+        self.inner.to_json()
     }
-    
-    fn num_rows(&self) -> usize {
-        self.step_results.len()
-    }
-    
-    fn num_steps(&self) -> usize {
-        self.step_labels.len()
-    }
-    
-    fn to_polars(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let polars = py.import("polars")?;
-        let from_dict = polars.getattr("from_dict")?;
-        
-        let data_dict = PyDict::new(py);
-        
-        // Agregar cada columna
-        for (i, label) in self.step_labels.iter().enumerate() {
-            let values: Vec<bool> = self.step_results.iter()
-                .map(|row| row[i])
-                .collect();
-            data_dict.set_item(label, values)?;
-        }
-        
-        let df = from_dict.call1((data_dict,))?;
-        Ok(df.into())
-    }
-    
-    fn to_pretty_string(&self) -> String {
-        if self.step_labels.is_empty() {
-            return "Empty FullTruthTable".to_string();
-        }
-        
-        let mut output = String::new();
-        
-        // Encabezado
-        for label in &self.step_labels {
-            output.push_str(&format!("│ {:^12} ", label));
-        }
-        output.push_str("│\n");
-        
-        // Separador
-        for _ in &self.step_labels {
-            output.push_str("├──────────────");
-        }
-        output.push_str("┤\n");
-        
-        // Filas de datos
-        for row in &self.step_results {
-            for &val in row {
-                output.push_str(&format!("│ {:^12} ", val));
-            }
-            output.push_str("│\n");
-        }
-        
-        // Pie de tabla
-        for _ in &self.step_labels {
-            output.push_str("└──────────────");
-        }
-        output.push_str("┘\n");
-        
-        output
-    }
-    
-    fn __str__(&self) -> String {
-        self.to_pretty_string()
-    }
-    
-    fn __repr__(&self) -> String {
-        format!("FullTruthTable(base_variables: {:?}, steps: {}, rows: {})", 
-                self.base_variables, self.num_steps(), self.num_rows())
-    }
-    
+
+    /// Supports len(table) in Python.
     fn __len__(&self) -> usize {
-        self.num_rows()
+        self.inner.num_rows()
     }
-    
-    // Método para acceder a una fila específica
-    fn get_row(&self, index: usize) -> Option<Vec<bool>> {
-        self.step_results.get(index).cloned()
-    }
-    
-    // Método para acceder a los resultados de un paso específico
-    fn get_step_results(&self, step_index: usize) -> Option<Vec<bool>> {
-        if step_index >= self.step_labels.len() {
-            return None;
+
+    /// Supports table[index] for row access in Python.
+    fn __getitem__(&self, index: usize, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let row = self.inner.get_row(index)
+            .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyIndexError, _>("Row index out of range"))?;
+        let dict = PyDict::new(py);
+        for (name, value) in row {
+            dict.set_item(name, value)?;
         }
-        Some(self.step_results.iter().map(|row| row[step_index]).collect())
+        Ok(dict.into())
+    }
+
+    /// Computes true/false counts for a specific column.
+    fn column_stats(&self, column: String) -> PyResult<HashMap<String, f64>> {
+        if !self.inner.columns.contains_key(&column) {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Column '{}' not found", column)));
+        }
+        let col = self.inner.columns.get(&column).unwrap();
+        let true_count = col.iter().filter(|&&b| b).count() as f64;
+        let total = col.len() as f64;
+        let mut stats = HashMap::new();
+        stats.insert("true_count".to_string(), true_count);
+        stats.insert("false_count".to_string(), total - true_count);
+        stats.insert("true_percentage".to_string(), if total > 0.0 { (true_count / total) * 100.0 } else { 0.0 });
+        Ok(stats)
     }
 }
 
@@ -356,76 +328,15 @@ impl PyBooleanExpr {
 
         self.inner.evaluate_with_defaults(&ref_map, default)
     }
-    
-    pub fn truth_table(&self) -> TruthTable {
-        let table = self.inner.truth_table();
-        let variables = self.inner.variables.clone();
-        
-        let mut combinations = Vec::new();
-        let mut results = Vec::new();
-        
-        for (values, result) in table {
-            let mut row = Vec::new();
-            for var in &variables {
-                row.push(*values.get(var.as_str()).unwrap());
-            }
-            combinations.push(row);
-            results.push(result);
-        }
-        
-        TruthTable {
-            variables,
-            combinations,
-            results,
-        }
+
+    pub fn truth_table(&self) -> bindings::boolean_algebra::PyTruthTable {
+        bindings::boolean_algebra::PyTruthTable { inner: self.inner.truth_table() }
     }
 
-    pub fn full_truth_table(&self) -> FullTruthTable {
-        // Get the full truth table as a Vec of (base, steps, result)
-        let table = self.inner.full_truth_table();
-        let base_variables = self.inner.variables.clone();
-
-        // If the table is empty, return empty labels/results
-        if table.is_empty() {
-            return FullTruthTable {
-                base_variables,
-                step_labels: Vec::new(),
-                step_results: Vec::new(),
-            };
-        }
-
-        // Extract step labels from the first row's step HashMap
-        let step_labels: Vec<String> = table[0].1.keys().cloned().collect();
-
-        // Build step_results: each row is base values + step values + result
-        let mut step_results = Vec::new();
-        for (base_map, step_map, result) in table {
-            let mut row = Vec::new();
-            // Push base variable values in order
-            for var in &base_variables {
-                row.push(*base_map.get(var).unwrap_or(&false));
-            }
-            // Push step values in order of step_labels
-            for label in &step_labels {
-                row.push(*step_map.get(label).unwrap_or(&false));
-            }
-            // Push the final result
-            row.push(result);
-            step_results.push(row);
-        }
-
-        // Combine base_variables and step_labels for the full header
-        let mut all_labels = base_variables.clone();
-        all_labels.extend(step_labels.clone());
-        all_labels.push("result".to_string());
-
-        FullTruthTable {
-            base_variables,
-            step_labels: all_labels,
-            step_results,
-        }
+    pub fn full_truth_table(&self) -> bindings::boolean_algebra::PyTruthTable {
+        bindings::boolean_algebra::PyTruthTable { inner: self.inner.full_truth_table().to_truth_table().expect("Failed to generate truth table") }
     }
-    
+        
     // AÑADIDO: Método faltante
     pub fn to_prefix_notation(&self) -> String {
         self.inner.to_prefix_notation()
@@ -448,6 +359,7 @@ impl PyBooleanExpr {
         self.inner.variables.clone()
     }
     
+    #[getter]  // AÑADIDO: Usar getter para propiedades
     pub fn complexity(&self) -> usize {
         self.inner.complexity()
     }

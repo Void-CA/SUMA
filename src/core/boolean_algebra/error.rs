@@ -13,7 +13,6 @@ pub enum BooleanAlgebraError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseError {
     UnexpectedToken { expected: String, found: String },
-    UnclosedParenthesis,
     InvalidCharacter(char),
     EmptyExpression,
     InvalidOperator(String),
@@ -24,15 +23,12 @@ pub enum ParseError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EvaluationError {
     MissingVariable(String),
-    InvalidVariableType(String),
-    CircularReference(String),
 }
 
 /// Errores de expresiones inválidas
 #[derive(Debug, Clone, PartialEq)]
 pub enum InvalidExpressionError {
     TooComplex(usize), // Límite de complejidad
-    UnsupportedOperation(String),
     InvalidVariableName(String),
 }
 
@@ -52,9 +48,6 @@ impl fmt::Display for ParseError {
         match self {
             ParseError::UnexpectedToken { expected, found } => {
                 write!(f, "Se esperaba '{}' pero se encontró '{}'", expected, found)
-            }
-            ParseError::UnclosedParenthesis => {
-                write!(f, "Paréntesis sin cerrar")
             }
             ParseError::InvalidCharacter(c) => {
                 write!(f, "Carácter inválido: '{}'", c)
@@ -78,12 +71,6 @@ impl fmt::Display for EvaluationError {
             EvaluationError::MissingVariable(var) => {
                 write!(f, "Variable faltante: '{}'", var)
             }
-            EvaluationError::InvalidVariableType(var) => {
-                write!(f, "Tipo inválido para variable '{}'", var)
-            }
-            EvaluationError::CircularReference(ref_desc) => {
-                write!(f, "Referencia circular: {}", ref_desc)
-            }
         }
     }
 }
@@ -93,9 +80,6 @@ impl fmt::Display for InvalidExpressionError {
         match self {
             InvalidExpressionError::TooComplex(limit) => {
                 write!(f, "Expresión demasiado compleja (límite: {} operadores)", limit)
-            }
-            InvalidExpressionError::UnsupportedOperation(op) => {
-                write!(f, "Operación no soportada: '{}'", op)
             }
             InvalidExpressionError::InvalidVariableName(name) => {
                 write!(f, "Nombre de variable inválido: '{}'", name)
