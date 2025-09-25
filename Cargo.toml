@@ -2,7 +2,7 @@
 name = "suma_ulsa"
 version = "0.1.0"
 edition = "2021"
-authors = ["Ari Castillo <tu_email@ejemplo.com>"]
+authors = ["Ari Castillo <castilloari282@gmail.com>"]
 description = "Sistema Universitario de Métodos Académicos (SUMA) - librería Rust con bindings Python"
 license = "MIT"
 
