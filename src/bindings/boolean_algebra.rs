@@ -29,7 +29,6 @@ impl PyTruthTable {
         if self.inner.variables.is_empty() {
             return "Empty TruthTable".to_string();
         }
-        
         let max_len = self.inner.column_order.iter().map(|k| k.len()).max().unwrap_or(0).max(6);
         let mut output = String::new();
         
@@ -276,6 +275,10 @@ impl PyTruthTable {
         stats.insert("true_percentage".to_string(), if total > 0.0 { (true_count / total) * 100.0 } else { 0.0 });
         Ok(stats)
     }
+
+    fn __repr__(&self) -> String {
+        self.__str__()
+    }
 }
 
 /// Expresión booleana para Python
@@ -444,6 +447,7 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let submodule = PyModule::new(parent.py(), "boolean_algebra")?;
 
     submodule.add_class::<PyBooleanExpr>()?;
+    submodule.add_class::<PyTruthTable>()?;
     submodule.add_function(wrap_pyfunction!(parse_expression_debug, &submodule)?)?;
     submodule.add_function(wrap_pyfunction!(truth_table_from_expr, &submodule)?)?;
 
