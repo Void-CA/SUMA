@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "suma_ulsa"
-version = "0.1.5"
+version = "0.1.7"
 description = "Sistema Universitario de Métodos Académicos (SUMA) - librería Python con backend en Rust"
 authors = [
     { name="Ari Castillo", email="castilloari282@gmail.com" }
@@ -12,3 +12,21 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+
+[tool.pyright]
+include = [
+    "suma_ulsa"
+]
+exclude = [
+    "**/build",
+    "**/target", 
+    "**/venv",
+    "**/__pycache__"
+]
+reportMissingImports = false
+reportMissingModuleSource = false
+
+[tool.mypy]
+plugins = []
+follow_imports = "silent"
+ignore_missing_imports = true

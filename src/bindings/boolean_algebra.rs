@@ -452,6 +452,9 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     submodule.add_function(wrap_pyfunction!(truth_table_from_expr, &submodule)?)?;
 
     parent.add_submodule(&submodule)?;
+    parent.py().import("sys")?
+        .getattr("modules")?
+        .set_item(&format!("suma_ulsa.boolean_algebra"), submodule)?;
     
     Ok(())
 }
