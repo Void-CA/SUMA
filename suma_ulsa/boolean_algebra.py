@@ -1,5 +1,5 @@
 """
-Number conversion utilities.
+Boolean algebra module interface.
 """
 try:
     # Import from Rust extension
