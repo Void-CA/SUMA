@@ -6,11 +6,19 @@ authors = ["Ari Castillo <castilloari282@gmail.com>"]
 description = "Sistema Universitario de Métodos Académicos (SUMA) - librería Rust con bindings Python"
 license = "MIT"
 
+[features]
+default = []
+polars = ["dep:polars"]
+
 [lib]
-name = "suma_ulsa" 
+name = "suma_ulsa_native" 
 crate-type = ["cdylib"]  # Necesario para exportar a Python
 
 [dependencies]
 pyo3 = { version = "0.26", features = ["extension-module"] }
+polars = { version = "0.35", optional = true, features = ["lazy", "strings"] }
+
+[workspace]
+resolver = "2"
 
 [dev-dependencies]

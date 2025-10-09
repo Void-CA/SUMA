@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "suma_ulsa"
-version = "0.1.11"
+version = "0.1.18"
 description = "Sistema Universitario de Métodos Académicos (SUMA) - librería Python con backend en Rust"
 authors = [
     { name = "Ari Castillo", email = "castilloari282@gmail.com" }
@@ -15,7 +15,7 @@ license = { text = "MIT" }
 
 
 [tool.maturin]
-module-name = "suma_ulsa.suma_ulsa"
+module-name = "suma_ulsa.suma_ulsa_native"
 
 include = [
     "suma_ulsa/__init__.py",
@@ -26,7 +26,6 @@ include = [
 
 # Evita incluir archivos compilados viejos
 exclude = [
-    "suma_ulsa/*.pyd",
     "target/**",
     "**/__pycache__/**"
 ]
