@@ -1,7 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use pyo3::wrap_pyfunction;
-use std::collections::HashMap;
 
 use crate::core::networking::subnets::subnet_calculator::{SubnetCalculator, SubnetRow};
 

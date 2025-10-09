@@ -4,7 +4,7 @@ use pyo3::wrap_pyfunction;
 use std::collections::HashMap;
 
 use crate::bindings;
-use crate::core::boolean_algebra::{BooleanExpr, TruthTable};
+use crate::core::{BooleanExpr, TruthTable};
 
 #[pyclass(name = "TruthTable")]
 pub struct PyTruthTable {
