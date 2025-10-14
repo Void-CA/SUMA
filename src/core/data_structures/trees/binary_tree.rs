@@ -326,19 +326,42 @@ impl<T: Ord + Display + Clone> BinaryTree<T> {
         T: Display,
     {
         let mut result = String::new();
-        Self::print_tree_recursive(&self.root, 0, &mut result);
+        if let Some(root) = &self.root {
+            // Print root
+            result.push_str(&format!("{}\n", root.value));
+            // Collect children in left, right order if present
+            let mut children: Vec<&Box<TreeNode<T>>> = Vec::new();
+            if let Some(left) = &root.left {
+                children.push(left);
+            }
+            if let Some(right) = &root.right {
+                children.push(right);
+            }
+            for (i, child) in children.iter().enumerate() {
+                let is_tail = i == children.len() - 1;
+                Self::print_tree_pretty_node(child, "", is_tail, &mut result);
+            }
+        }
         result
     }
 
-    fn print_tree_recursive(node: &Option<Box<TreeNode<T>>>, depth: usize, result: &mut String) 
+    fn print_tree_pretty_node(node: &Box<TreeNode<T>>, prefix: &str, is_tail: bool, result: &mut String)
     where
         T: Display,
     {
-        if let Some(current) = node {
-            Self::print_tree_recursive(&current.right, depth + 1, result);
-            result.push_str(&"    ".repeat(depth));
-            result.push_str(&format!("{}\n", current.value));
-            Self::print_tree_recursive(&current.left, depth + 1, result);
+        result.push_str(&format!("{}{}{}\n", prefix, if is_tail { "└── " } else { "├── " }, node.value));
+        // Prepare children (left first, then right)
+        let mut children: Vec<&Box<TreeNode<T>>> = Vec::new();
+        if let Some(left) = &node.left {
+            children.push(left);
+        }
+        if let Some(right) = &node.right {
+            children.push(right);
+        }
+        for (i, child) in children.iter().enumerate() {
+            let tail = i == children.len() - 1;
+            let new_prefix = format!("{}{}", prefix, if is_tail { "    " } else { "│   " });
+            Self::print_tree_pretty_node(child, &new_prefix, tail, result);
         }
     }
 }
@@ -445,10 +468,12 @@ mod tests {
         tree.insert(2);
 
         let in_order_str = tree.print_in_order();
+        println!("{}", in_order_str);
         assert_eq!(in_order_str, "1\n2\n3\n4\n");
 
         let tree_str = tree.print_tree();
-        let expected_str = "    4\n3\n        2\n    1\n";
+        println!("{}", tree_str);
+        let expected_str = "3\n├── 1\n│   └── 2\n└── 4\n";
         assert_eq!(tree_str, expected_str);
     }
 

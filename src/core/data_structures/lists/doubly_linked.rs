@@ -360,4 +360,20 @@ mod tests {
         assert_eq!(list.front(), Some(&10));
         assert_eq!(list.back(), Some(&30));
     }
+
+    #[test]
+    fn test_generic_types() {
+        #[derive(Debug, PartialEq)]
+        struct Point {
+            x: i32,
+            y: i32,
+        }
+        let mut list = DoublyLinkedList::new();
+        list.push_back(Point { x: 1, y: 2 });
+        list.push_back(Point { x: 3, y: 4 });
+
+        assert_eq!(list.len(), 2);
+        assert_eq!(list.pop_front(), Some(Point { x: 1, y: 2 }));
+        assert_eq!(list.pop_back(), Some(Point { x: 3, y: 4 }));
+    }
 }
