@@ -1,3 +1,3 @@
 pub mod subnets;
 
-pub use subnets::{SubnetCalculator, SubnetRow, traits::export_subnet_calculation};
+pub use subnets::{SubnetCalculator, SubnetRow, export_subnet_calculation, VLSMCalculator};

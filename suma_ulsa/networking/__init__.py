@@ -1,14 +1,13 @@
 from .networking import (
     SubnetCalculator,
+    VLSMCalculator,
     SubnetRow,
-    create_subnet_calculator,
 )
 
 __all__ = [
     "SubnetCalculator",
     "SubnetRow",
-    "create_subnet_calculator",
+    "VLSMCalculator"
 ]
-print(SubnetCalculator)
 if False:
     from .networking import *  # Ayuda a linters

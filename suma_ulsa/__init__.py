@@ -40,6 +40,5 @@ __all__ = [
     # Networking
     "SubnetCalculator",
     "SubnetRow",
-    "create_subnet_calculator",
-    "calculate_subnets"
+    "VLSMCalculator"
 ]

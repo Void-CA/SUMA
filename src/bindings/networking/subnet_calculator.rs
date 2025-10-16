@@ -1,10 +1,7 @@
-use std::f32::consts::E;
-
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use pyo3::wrap_pyfunction;
 
-use crate::core::networking::{SubnetCalculator, SubnetRow, export_subnet_calculation};
+use crate::core::{SubnetCalculator, SubnetRow, export_subnet_calculation};
 
 #[pyclass(name = "SubnetCalculator", module = "suma_ulsa.networking")]
 pub struct PySubnetCalculator {
@@ -308,6 +305,7 @@ pub fn to_markdown(&self) -> PyResult<String> {
 
 // Wrapper para SubnetRow
 #[pyclass(name = "SubnetRow", module = "suma_ulsa.networking")]
+#[derive(Clone)]
 pub struct PySubnetRow {
     #[pyo3(get)]
     pub subred: u32,
@@ -329,6 +327,18 @@ impl From<SubnetRow> for PySubnetRow {
             primera_ip: row.primera_ip,
             ultima_ip: row.ultima_ip,
             broadcast: row.broadcast,
+        }
+    }
+}
+
+impl Into<SubnetRow> for PySubnetRow {
+    fn into(self) -> SubnetRow {
+        SubnetRow {
+            subred: self.subred,
+            direccion_red: self.direccion_red,
+            primera_ip: self.primera_ip,
+            ultima_ip: self.ultima_ip,
+            broadcast: self.broadcast,
         }
     }
 }
@@ -407,22 +417,3 @@ pub fn create_subnet_calculator(ip: &str, subnet_quantity: usize) -> PyResult<Py
     PySubnetCalculator::new(ip, subnet_quantity)
 }
 
-
-/// Registra el módulo de redes
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submodule = PyModule::new(parent.py(), "networking")?;
-    
-    submodule.add_class::<PySubnetCalculator>()?;
-    submodule.add_class::<PySubnetRow>()?;
-    submodule.add_function(wrap_pyfunction!(create_subnet_calculator, &submodule)?)?;
-    
-    
-    parent.add_submodule(&submodule)?;
-    
-    // Registrar el módulo en sys.modules
-    parent.py().import("sys")?
-        .getattr("modules")?
-        .set_item("suma_ulsa.networking", submodule)?;
-    
-    Ok(())
-}

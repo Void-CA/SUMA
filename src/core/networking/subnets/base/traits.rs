@@ -72,10 +72,17 @@ impl Exportable for SubnetCalculator {
         exporter.end_object();
         
         // Lista de subredes
-        exporter.begin_array("subnets");
+         exporter.begin_array("subnets");
         let rows = self.generate_rows();
         for row in &rows {
-            row.export_with(exporter);
+            // Para objetos dentro de arrays, usa begin_object con key vacía
+            exporter.begin_object("");
+            exporter.write_field("subnet", &row.subred.to_string());
+            exporter.write_field("network_address", &row.direccion_red);
+            exporter.write_field("first_host", &row.primera_ip);
+            exporter.write_field("last_host", &row.ultima_ip);
+            exporter.write_field("broadcast", &row.broadcast);
+            exporter.end_object(); // ← Esto agrega el objeto al array
         }
         exporter.end_array();
         
@@ -138,6 +145,17 @@ pub fn export_subnet_calculation(
         "md" | "markdown" => {
             let rows = calculator.generate_rows();
             let mut out = String::new();
+
+            out.push_str("## Subnet Calculation Results\n\n");
+            out.push_str(&format!("Original Network: {}\n", calculator.original_ip()));
+            out.push_str(&format!("Subnet Mask: {}\n", calculator.subnet_mask()));
+            out.push_str(&format!("Binary Subnet Mask: {}\n", calculator.binary_subnet_mask()));
+            out.push_str(&format!("New Subnet Mask: {}\n", calculator.new_subnet_mask()));
+            out.push_str(&format!("Binary New Subnet Mask: {}\n", calculator.binary_new_mask()));
+            out.push_str(&format!("Total Subnets: {}\n", calculator.subnet_quantity()));
+            out.push_str(&format!("Hosts per Subnet: {}\n\n", calculator.hosts_quantity()));
+            out.push_str(&format!("Salto de red: {}\n\n", calculator.net_jump()));
+            out.push_str("## Subnet Details\n\n");
 
             // Markdown table header
             out.push_str(&SubnetRow::markdown_header());

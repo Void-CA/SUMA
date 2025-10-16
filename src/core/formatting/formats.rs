@@ -5,6 +5,7 @@ pub trait Exporter {
     fn end_object(&mut self);
     fn begin_array(&mut self, key: &str);
     fn write_array_item(&mut self, value: &str);
+
     fn end_array(&mut self);
     fn end(&mut self);
     fn output(&self) -> String;
@@ -116,7 +117,15 @@ impl Exporter for JsonExporter {
 
     fn begin_object(&mut self, key: &str) {
         self.write_comma_if_needed();
-        self.output.push_str(&format!("\"{}\":{{", key));
+        
+        if !key.is_empty() {
+            // Para objetos con key: "key": {
+            self.output.push_str(&format!("\"{}\":{{", key));
+        } else {
+            // Para objetos sin key (en arrays): {
+            self.output.push('{');
+        }
+        
         self.stack.push('{');
         self.first_in_container = true;
     }

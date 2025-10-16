@@ -10,7 +10,6 @@ except ImportError:
 
 __all__ = [
     "SubnetCalculator",
-    "create_subnet_calculator",
-    "calculate_subnets",
-    "SubnetRow"
+    "SubnetRow",
+    "VLSMCalculator"
 ]
