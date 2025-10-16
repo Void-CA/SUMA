@@ -12,7 +12,7 @@ pub struct SubnetRow {
 #[derive(Debug, Clone)]
 pub struct SubnetCalculator {
     original_ip: String,
-    has_cidr: bool,
+    pub has_cidr: bool,
     ip: String,
     cidr: Option<u8>,
     subnet_quantity: usize,
@@ -116,7 +116,7 @@ impl SubnetCalculator {
         )
     }
 
-    fn mask_to_cidr(&self, mask: &str) -> u8 {
+    pub fn mask_to_cidr(&self, mask: &str) -> u8 {
         mask.split('.')
             .map(|x| x.parse::<u8>().unwrap_or(0).count_ones() as u8)
             .sum()
@@ -389,27 +389,6 @@ impl SubnetCalculator {
             .collect()
     }
 
-    // Método opcional para convertir a Polars DataFrame (si la feature está habilitada)
-    #[cfg(feature = "polars")]
-    pub fn generate_dataframe(&self) -> Result<polars::prelude::DataFrame, polars::prelude::PolarsError> {
-        use polars::prelude::*;
-        
-        let rows = self.generate_rows();
-        
-        let subred: Vec<u32> = rows.iter().map(|r| r.subred).collect();
-        let direccion_red: Vec<String> = rows.iter().map(|r| r.direccion_red.clone()).collect();
-        let primera_ip: Vec<String> = rows.iter().map(|r| r.primera_ip.clone()).collect();
-        let ultima_ip: Vec<String> = rows.iter().map(|r| r.ultima_ip.clone()).collect();
-        let broadcast: Vec<String> = rows.iter().map(|r| r.broadcast.clone()).collect();
-
-        df!(
-            "Subred" => subred,
-            "Direccion Red" => direccion_red,
-            "Primera IP" => primera_ip,
-            "Ultima IP" => ultima_ip,
-            "Broadcast" => broadcast
-        )
-    }
 
     // Getters para acceder a los campos privados
     pub fn original_ip(&self) -> &str { &self.original_ip }
@@ -447,6 +426,7 @@ impl std::fmt::Display for SubnetCalculator {
         write!(f, "Hosts por subred: {}", self.hosts_quantity)
     }
 }
+
 
 #[cfg(test)]
 mod tests {
