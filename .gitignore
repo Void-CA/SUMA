@@ -5,4 +5,5 @@ test*
 *.pyc
 __pycache__/
 *.pyc 
+.idea/
 README.txt

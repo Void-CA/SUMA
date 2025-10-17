@@ -1,131 +1,131 @@
 use crate::core::{SubnetCalculator, SubnetRow};
 
-    #[derive(Debug)]
-    pub struct VLSMCalculator {
-        pub base_calculator: SubnetCalculator,
-        pub hosts_requirements: Vec<u32>,
-        pub vlsm_subnets: Vec<SubnetRow>,
-    }
+#[derive(Debug)]
+pub struct VLSMCalculator {
+    pub base_calculator: SubnetCalculator,
+    pub hosts_requirements: Vec<u32>,
+    pub vlsm_subnets: Vec<SubnetRow>,
+}
 
-    // Helper function to increment an IPv4 address by n
-    fn increment_ip(ip: std::net::Ipv4Addr, n: u32) -> std::net::Ipv4Addr {
-        let ip_u32 = u32::from(ip);
-        std::net::Ipv4Addr::from(ip_u32.saturating_add(n))
-    }
+// Helper function to increment an IPv4 address by n
+fn increment_ip(ip: std::net::Ipv4Addr, n: u32) -> std::net::Ipv4Addr {
+    let ip_u32 = u32::from(ip);
+    std::net::Ipv4Addr::from(ip_u32.saturating_add(n))
+}
 
-    impl VLSMCalculator {
-        pub fn new(ip: &str, hosts_requirements: Vec<u32>) -> Self {
-            let base_calculator = SubnetCalculator::new(ip, hosts_requirements.len());
-            let vlsm_subnets = Self::calculate_vlsm_subnets(&base_calculator, &hosts_requirements);
-            
-            Self {
-                base_calculator,
-                hosts_requirements,
-                vlsm_subnets,
-            }
-        }
+impl VLSMCalculator {
+    pub fn new(ip: &str, hosts_requirements: Vec<u32>) -> Self {
+        let base_calculator = SubnetCalculator::new(ip, hosts_requirements.len());
+        let vlsm_subnets = Self::calculate_vlsm_subnets(&base_calculator, &hosts_requirements);
         
-        fn calculate_vlsm_subnets(
-        base_calc: &SubnetCalculator,
-        hosts_requirements: &[u32],
-    ) -> Vec<SubnetRow> {
-        let mut subnets = Vec::new();
-        let mut current_network = base_calc.ip().parse::<std::net::Ipv4Addr>().expect("Invalid IP address");
-
-        // Sort hosts_requirements in descending order for optimal VLSM allocation
-        let mut sorted_requirements: Vec<(usize, u32)> = hosts_requirements.iter()
-            .enumerate()
-            .map(|(i, &h)| (i, h))
-            .collect();
-        sorted_requirements.sort_by(|a, b| b.1.cmp(&a.1));
-
-        for (original_index, hosts) in &sorted_requirements {
-            // Calcular bits necesarios para hosts (incluyendo red y broadcast)
-            let needed_host_bits = if *hosts == 0 {
-                0
-            } else {
-                (*hosts + 2).next_power_of_two().trailing_zeros() as u32
-            };
-            
-            let subnet_size = 2u32.pow(needed_host_bits);
-
-            let network = current_network;
-            let broadcast = increment_ip(network, subnet_size - 1);
-            
-            // Calcular IPs válidas
-            let first_ip = if *hosts > 0 { increment_ip(network, 1) } else { network };
-            let last_ip = if *hosts > 0 {
-                std::net::Ipv4Addr::from(u32::from(broadcast).saturating_sub(1))
-            } else { 
-                network 
-            };
-
-            subnets.push(SubnetRow {
-                subred: (original_index + 1) as u32, // Mantener orden original
-                direccion_red: network.to_string(),
-                primera_ip: first_ip.to_string(),
-                ultima_ip: last_ip.to_string(),
-                broadcast: broadcast.to_string(),
-            });
-
-            current_network = increment_ip(broadcast, 1);
+        Self {
+            base_calculator,
+            hosts_requirements,
+            vlsm_subnets,
         }
-
-        // Reordenar para mantener el orden original de los requerimientos
-        subnets.sort_by(|a, b| a.subred.cmp(&b.subred));
-        subnets
     }
+    
+    fn calculate_vlsm_subnets(
+    base_calc: &SubnetCalculator,
+    hosts_requirements: &[u32],
+) -> Vec<SubnetRow> {
+    let mut subnets = Vec::new();
+    let mut current_network = base_calc.ip().parse::<std::net::Ipv4Addr>().expect("Invalid IP address");
 
+    // Sort hosts_requirements in descending order for optimal VLSM allocation
+    let mut sorted_requirements: Vec<(usize, u32)> = hosts_requirements.iter()
+        .enumerate()
+        .map(|(i, &h)| (i, h))
+        .collect();
+    sorted_requirements.sort_by(|a, b| b.1.cmp(&a.1));
+
+    for (original_index, hosts) in &sorted_requirements {
+        // Calcular bits necesarios para hosts (incluyendo red y broadcast)
+        let needed_host_bits = if *hosts == 0 {
+            0
+        } else {
+            (*hosts + 2).next_power_of_two().trailing_zeros() as u32
+        };
         
-        pub fn get_vlsm_subnets(&self) -> &[SubnetRow] {
-            &self.vlsm_subnets
-        }
+        let subnet_size = 2u32.pow(needed_host_bits);
+
+        let network = current_network;
+        let broadcast = increment_ip(network, subnet_size - 1);
         
-        // Para mantener compatibilidad
-        pub fn generate_rows(&self) -> Vec<SubnetRow> {
-            // Convertir VLSM subnets a SubnetRow
-            self.vlsm_subnets.iter().enumerate().map(|(i, subnet)| {
-                SubnetRow {
-                    subred: (i + 1) as u32,
-                    direccion_red: subnet.direccion_red.clone(),
-                    primera_ip: subnet.primera_ip.clone(),
-                    ultima_ip: subnet.ultima_ip.clone(),
-                    broadcast: subnet.broadcast.clone(),
-                }
-            }).collect()
-        }
-        pub fn calculate_efficiency(&self) -> f64 {
-            let total_required: u32 = self.hosts_requirements.iter().sum();
-            if total_required == 0 {
-                return 0.0;
-            }
+        // Calcular IPs válidas
+        let first_ip = if *hosts > 0 { increment_ip(network, 1) } else { network };
+        let last_ip = if *hosts > 0 {
+            std::net::Ipv4Addr::from(u32::from(broadcast).saturating_sub(1))
+        } else { 
+            network 
+        };
 
-            let subnets = self.get_vlsm_subnets();
-            let mut total_allocated = 0u32;
+        subnets.push(SubnetRow {
+            subred: (original_index + 1) as u32, // Mantener orden original
+            direccion_red: network.to_string(),
+            primera_ip: first_ip.to_string(),
+            ultima_ip: last_ip.to_string(),
+            broadcast: broadcast.to_string(),
+        });
 
-            for (i, subnet) in subnets.iter().enumerate() {
-                let req_hosts = self.hosts_requirements.get(i).unwrap_or(&0);
-                if *req_hosts > 0 {
-                    total_allocated += *req_hosts;
-                }
-            }
-
-            (total_required as f64 / total_allocated as f64) * 100.0
-        }
-
-        pub fn calculate_usable_hosts_for_subnet(&self, subnet: &SubnetRow) -> u32 {
-            let first_ip: u32 = subnet.primera_ip.parse::<std::net::Ipv4Addr>()
-                .unwrap_or(std::net::Ipv4Addr::new(0, 0, 0, 0)).into();
-            let last_ip: u32 = subnet.ultima_ip.parse::<std::net::Ipv4Addr>()
-                .unwrap_or(std::net::Ipv4Addr::new(0, 0, 0, 0)).into();
-            
-            if last_ip >= first_ip {
-                last_ip - first_ip + 1
-            } else {
-                0
-            }
+        current_network = increment_ip(broadcast, 1);
     }
+
+    // Reordenar para mantener el orden original de los requerimientos
+    subnets.sort_by(|a, b| a.subred.cmp(&b.subred));
+    subnets
+}
+
+    
+    pub fn get_vlsm_subnets(&self) -> &[SubnetRow] {
+        &self.vlsm_subnets
     }
+    
+    // Para mantener compatibilidad
+    pub fn generate_rows(&self) -> Vec<SubnetRow> {
+        // Convertir VLSM subnets a SubnetRow
+        self.vlsm_subnets.iter().enumerate().map(|(i, subnet)| {
+            SubnetRow {
+                subred: (i + 1) as u32,
+                direccion_red: subnet.direccion_red.clone(),
+                primera_ip: subnet.primera_ip.clone(),
+                ultima_ip: subnet.ultima_ip.clone(),
+                broadcast: subnet.broadcast.clone(),
+            }
+        }).collect()
+    }
+    pub fn calculate_efficiency(&self) -> f64 {
+        let total_required: u32 = self.hosts_requirements.iter().sum();
+        if total_required == 0 {
+            return 0.0;
+        }
+
+        let subnets = self.get_vlsm_subnets();
+        let mut total_allocated = 0u32;
+
+        for (i, subnet) in subnets.iter().enumerate() {
+            let req_hosts = self.hosts_requirements.get(i).unwrap_or(&0);
+            if *req_hosts > 0 {
+                total_allocated += *req_hosts;
+            }
+        }
+
+        (total_required as f64 / total_allocated as f64) * 100.0
+    }
+
+    pub fn calculate_usable_hosts_for_subnet(&self, subnet: &SubnetRow) -> u32 {
+        let first_ip: u32 = subnet.primera_ip.parse::<std::net::Ipv4Addr>()
+            .unwrap_or(std::net::Ipv4Addr::new(0, 0, 0, 0)).into();
+        let last_ip: u32 = subnet.ultima_ip.parse::<std::net::Ipv4Addr>()
+            .unwrap_or(std::net::Ipv4Addr::new(0, 0, 0, 0)).into();
+        
+        if last_ip >= first_ip {
+            last_ip - first_ip + 1
+        } else {
+            0
+        }
+}
+}
 
 
 #[cfg(test)]

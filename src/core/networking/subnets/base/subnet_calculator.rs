@@ -11,18 +11,18 @@ pub struct SubnetRow {
 
 #[derive(Debug, Clone)]
 pub struct SubnetCalculator {
-    original_ip: String,
+    pub original_ip: String,
     pub has_cidr: bool,
-    ip: String,
-    cidr: Option<u8>,
-    subnet_quantity: usize,
-    net_class: String,
-    subnet_mask: String,
-    binary_subnet_mask: String,
-    new_subnet_mask: String,
-    binary_new_mask: String,
-    net_jump: u32,
-    hosts_quantity: u32,
+    pub ip: String,
+    pub cidr: Option<u8>,
+    pub subnet_quantity: usize,
+    pub net_class: String,
+    pub subnet_mask: String,
+    pub binary_subnet_mask: String,
+    pub new_subnet_mask: String,
+    pub binary_new_mask: String,
+    pub net_jump: u32,
+    pub hosts_quantity: u32,
 }
 
 impl SubnetCalculator {

@@ -1,4 +1,5 @@
-use crate::core::formatting::formats::{CsvRow, Exportable, Exporter, MarkdownRow, TableRow, XmlRow};
+use crate::core::formatting::export::{CsvRow, Exportable, Exporter, MarkdownRow, TableRow, XmlRow};
+use crate::core::formatting::{JsonExporter, MarkdownExporter, XmlExporter, YamlExporter, CsvExporter};
 use crate::core::networking::subnets::{SubnetCalculator, SubnetRow};
 
 impl Exportable for SubnetRow {
@@ -111,17 +112,17 @@ pub fn export_subnet_calculation(
 ) -> Result<String, &'static str> {
     match format.to_lowercase().as_str() {
         "json" => {
-            let mut exporter = crate::core::formatting::formats::JsonExporter::new();
+            let mut exporter = JsonExporter::new();
             calculator.export_with(&mut exporter);
             Ok(exporter.output())
         }
         "xml" => {
-            let mut exporter = crate::core::formatting::formats::XmlExporter::new();
+            let mut exporter = XmlExporter::new();
             calculator.export_with(&mut exporter);
             Ok(exporter.output())
         }
         "yaml" => {
-            let mut exporter = crate::core::formatting::formats::YamlExporter::new();
+            let mut exporter = YamlExporter::new();
             calculator.export_with(&mut exporter);
             Ok(exporter.output())
         }
