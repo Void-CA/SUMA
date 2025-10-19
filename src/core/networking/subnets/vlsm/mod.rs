@@ -1,5 +1,4 @@
-pub mod vlsm_calculator;
-pub mod traits;
-pub use vlsm_calculator::VLSMCalculator;
-pub use traits::export_vlsm_calculation;
+pub mod model;
+pub use model::VLSMCalculator;
 
+mod tests;

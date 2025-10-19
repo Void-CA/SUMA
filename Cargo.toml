@@ -16,10 +16,12 @@ crate-type = ["cdylib"]  # Necesario para exportar a Python
 
 [dependencies]
 pyo3 = { version = "0.26", features = ["extension-module"] }
-polars = { version = "0.35", optional = true, features = ["lazy", "strings"] }
+polars = { version = "0.51.0", optional = true, features = ["lazy", "strings"] }
+rust_xlsxwriter = "0.74"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.145"
 serde_yaml = "0.9.34"
+csv = "1.4.0"
 
 [workspace]
 resolver = "2"

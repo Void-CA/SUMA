@@ -10,6 +10,6 @@ pub mod formatting;
 // Re-export para fácil acceso
 pub use boolean_algebra::{BooleanExpr, TruthTable};
 pub use conversions::{NumberConverter};
-pub use networking::subnets::{SubnetCalculator, SubnetRow, export_subnet_calculation, VLSMCalculator, export_vlsm_calculation};
+pub use networking::subnets::{FLSMCalculator, SubnetRow, VLSMCalculator, BaseCalculator};
 pub use decision_theory::{decision_tree};
 

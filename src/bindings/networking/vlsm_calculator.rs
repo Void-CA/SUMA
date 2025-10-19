@@ -1,8 +1,10 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+use std::net::Ipv4Addr;
 
-use crate::bindings::networking::subnet_calculator::PySubnetRow;
-use crate::core::{SubnetRow, VLSMCalculator, export_vlsm_calculation};
+use crate::bindings::networking::subnet_row::PySubnetRow;
+use crate::core::{SubnetRow, BaseCalculator, VLSMCalculator};
+use crate::core::formatting::export::Exportable;
 
 #[pyclass(name = "VLSMCalculator", module = "suma_ulsa.networking")]
 pub struct PyVLSMCalculator {
@@ -12,115 +14,117 @@ pub struct PyVLSMCalculator {
 #[pymethods]
 impl PyVLSMCalculator {
     #[new]
-    #[pyo3(signature = (ip, hosts_requirements))]
-    #[pyo3(text_signature = "(ip, hosts_requirements)")]
-    pub fn new(ip: &str, hosts_requirements: Vec<u32>) -> PyResult<Self> {
-        // Validación básica
-        if hosts_requirements.is_empty() {
+    #[pyo3(signature = (ip, host_requirements))]
+    #[pyo3(text_signature = "(ip, host_requirements)")]
+    pub fn new(ip: &str, host_requirements: Vec<u32>) -> PyResult<Self> {
+        if host_requirements.is_empty() {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "hosts_requirements must not be empty",
-            ));
-        }
-
-        if hosts_requirements.iter().any(|&h| h > 16777214) {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Host requirement cannot exceed 16,777,214 hosts",
+                "host_requirements must not be empty",
             ));
         }
         
-        Ok(Self {
-            inner: VLSMCalculator::new(ip, hosts_requirements),
-        })
+        let inner = VLSMCalculator::new(ip, host_requirements)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+        
+        Ok(Self { inner })
     }
 
-    /// Returns a summary of the VLSM calculation
+    /// Returns a simple summary string of the VLSM calculation.
     #[pyo3(name = "summary")]
     #[pyo3(text_signature = "($self)")]
     pub fn summary(&self) -> String {
-        let subnets = self.inner.get_vlsm_subnets();
-        let total_hosts: u32 = self.inner.hosts_requirements.iter().sum();
-        let efficiency = self.calculate_efficiency();
+        let subnets = self.inner.subnets();
 
         format!(
-            "VLSM Subnetting Summary\n\
-            ───────────────────────\n\
-            IP Address           : {ip}\n\
-            Total Subnets        : {subnet_count}\n\
-            Total Hosts Required : {total_hosts}\n\
-            Allocation Efficiency: {efficiency:.1}%\n\
-            Requirements         : {requirements:?}\n",
-            ip = self.inner.base_calculator.original_ip(),
-            subnet_count = subnets.len(),
-            total_hosts = format_number(total_hosts as usize),
-            efficiency = efficiency,
-            requirements = self.inner.hosts_requirements
+            "VLSM Subnet Summary\n\
+            ───────────────────\n\
+            Base IP Address    : {ip}\n\
+            Network Class      : {class}\n\
+            Base CIDR          : /{cidr}\n\
+            Total Subnets      : {total}\n\
+            Total Hosts        : {hosts}\n\
+            Efficiency         : {efficiency:.1}%\n\
+            Utilization        : {utilization:.1}%\n",
+            ip = self.inner.base_ip(),
+            class = self.inner.network_class(),
+            cidr = self.inner.base_cidr(),
+            total = subnets.len(),
+            hosts = self.inner.total_hosts(),
+            efficiency = self.inner.efficiency(),
+            utilization = self.inner.utilization_percentage()
         )
     }
 
-    /// Prints the summary to stdout
+    /// Prints the summary to stdout.
     #[pyo3(name = "print_summary")]
     #[pyo3(text_signature = "($self)")]
     pub fn print_summary(&self) {
         println!("{}", self.summary());
     }
 
-    /// Returns a detailed VLSM table
+    /// Returns a subnets table format
     #[pyo3(name = "subnets_table")]
     #[pyo3(text_signature = "($self)")]
     pub fn subnets_table(&self) -> String {
-        let subnets = self.inner.get_vlsm_subnets();
+        let subnets = self.inner.subnets();
+        let requirements = self.inner.host_requirements();
         
         let mut output = String::new();
-        output.push_str("Subnet │ Req Hosts │ Network       │ First Host    │ Last Host     │ Broadcast     │ Usable\n");
-        output.push_str("───────┼───────────┼───────────────┼───────────────┼───────────────┼───────────────┼───────\n");
+        output.push_str("Subnet │ Network         │ First Host     │ Last Host      │ Broadcast      │ Hosts │ Required │ Usage\n");
+        output.push_str("───────┼─────────────────┼────────────────┼────────────────┼────────────────┼───────┼──────────┼───────\n");
         
         for (i, subnet) in subnets.iter().enumerate() {
-            let req_hosts = self.inner.hosts_requirements.get(i).unwrap_or(&0);
-            let usable_hosts = self.calculate_usable_hosts_for_subnet(subnet);
+            let required = requirements.get(i).copied().unwrap_or(0);
+            let usage = if subnet.hosts_per_net > 0 {
+                (required as f64 / subnet.hosts_per_net as f64) * 100.0
+            } else {
+                0.0
+            };
             
             output.push_str(&format!(
-                "{:6} │ {:9} │ {:13} │ {:13} │ {:13} │ {:13} │ {:6}\n",
+                "{:6} │ {:15} │ {:15} │ {:15} │ {:15} │ {:5} │ {:8} │ {:5.1}%\n",
                 subnet.subred,
-                req_hosts,
-                truncate_string(&subnet.direccion_red, 13),
-                truncate_string(&subnet.primera_ip, 13),
-                truncate_string(&subnet.ultima_ip, 13),
-                truncate_string(&subnet.broadcast, 13),
-                usable_hosts
+                subnet.direccion_red,
+                subnet.primera_ip,
+                subnet.ultima_ip,
+                subnet.broadcast,
+                subnet.hosts_per_net,
+                required,
+                usage
             ));
         }
         
         output
     }
 
-    /// Prints the VLSM table to stdout
+    /// Prints the subnet table to stdout.
     #[pyo3(name = "print_table")]
     #[pyo3(text_signature = "($self)")]
     pub fn print_table(&self) {
         println!("{}", self.subnets_table());
     }
 
-    /// Returns all VLSM subnet rows as Python objects
-    #[pyo3(name = "get_rows")]
+    /// Returns all subnet rows as Python objects
+    #[pyo3(name = "get_subnets")]
     #[pyo3(text_signature = "($self)")]
-    pub fn get_rows(&self) -> Vec<PySubnetRow> {
-        self.inner.get_vlsm_subnets()
+    pub fn get_subnets(&self) -> Vec<PySubnetRow> {
+        self.inner.subnets()
             .iter()
             .map(|row| PySubnetRow::from(row.clone()))
             .collect()
     }
 
-    /// Returns a specific VLSM subnet row
-    #[pyo3(name = "get_row")]
+    /// Returns a specific subnet row
+    #[pyo3(name = "get_subnet")]
     #[pyo3(text_signature = "($self, subnet_number)")]
-    pub fn get_row(&self, subnet_number: usize) -> PyResult<PySubnetRow> {
-        let subnets = self.inner.get_vlsm_subnets();
+    pub fn get_subnet(&self, subnet_number: usize) -> PyResult<PySubnetRow> {
+        let subnets = self.inner.subnets();
         if subnet_number == 0 || subnet_number > subnets.len() {
             return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
                 format!("Subnet number {} out of range (1-{})", subnet_number, subnets.len())
             ));
         }
-        
+
         Ok(PySubnetRow::from(subnets[subnet_number - 1].clone()))
     }
 
@@ -129,208 +133,146 @@ impl PyVLSMCalculator {
     #[pyo3(text_signature = "($self)")]
     pub fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
         let dict = PyDict::new(py);
-        dict.set_item("ip", self.inner.base_calculator.original_ip())?;
-        dict.set_item("hosts_requirements", &self.inner.hosts_requirements)?;
-        dict.set_item("subnet_count", self.inner.hosts_requirements.len())?;
-        dict.set_item("total_hosts_required", self.inner.hosts_requirements.iter().sum::<u32>())?;
-        dict.set_item("efficiency", self.calculate_efficiency())?;
-        
-        let rows = self.get_rows();
-        let py_rows = PyList::empty(py);
-        for row in rows {
-            py_rows.append(row.to_dict(py)?)?;
+        dict.set_item("base_ip", self.inner.base_ip().to_string())?;
+        dict.set_item("base_cidr", self.inner.base_cidr())?;
+        dict.set_item("network_class", self.inner.network_class())?;
+        dict.set_item("host_requirements", self.inner.host_requirements())?;
+        dict.set_item("efficiency", self.inner.efficiency())?;
+        dict.set_item("utilization_percentage", self.inner.utilization_percentage())?;
+        dict.set_item("total_hosts", self.inner.total_hosts())?;
+
+        let subnets = self.get_subnets();
+        let py_subnets = PyList::empty(py);
+        for subnet in subnets {
+            py_subnets.append(subnet.to_dict(py)?)?;
         }
-        dict.set_item("subnets", py_rows)?;
-        
+        dict.set_item("subnets", py_subnets)?;
+
         Ok(dict.into())
     }
 
-    /// Export to JSON format
+    // Export methods (same as FLSM)
     #[pyo3(name = "to_json")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_json(&self) -> PyResult<String> {
-        export_vlsm_calculation(&self.inner, "json")
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+        self.inner.to_json().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+        })
     }
 
-    /// Export to CSV format
     #[pyo3(name = "to_csv")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_csv(&self) -> PyResult<String> {
-        export_vlsm_calculation(&self.inner, "csv")
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+        self.inner.to_csv().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+        })
     }
 
+    #[pyo3(name = "to_markdown")]
+    #[pyo3(text_signature = "($self)")]
     pub fn to_markdown(&self) -> PyResult<String> {
-        export_vlsm_calculation(&self.inner, "md")
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+        self.inner.to_markdown().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+        })
     }
 
-    /// Export to file in specified format
+    #[pyo3(name = "to_excel")]
+    #[pyo3(signature = (path, /))]
+    #[pyo3(text_signature = "($self, path)")]
+    pub fn to_excel(&self, path: &str) -> PyResult<()> {
+        self.inner.to_excel(path).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+        })
+    }
+
     #[pyo3(name = "export_to_file")]
     #[pyo3(text_signature = "($self, filename, format)")]
     pub fn export_to_file(&self, filename: &str, format: &str) -> PyResult<()> {
         use std::fs::File;
         use std::io::Write;
-        
-        let content = match format.to_lowercase().as_str() {
+
+        let format_lower = format.to_lowercase();
+        if format_lower == "xlsx" || format_lower == "excel" {
+            return self.to_excel(filename);
+        }
+
+        let content = match format_lower.as_str() {
             "json" => self.to_json()?,
             "csv" => self.to_csv()?,
-            "md" => self.to_markdown()?,
+            "md" | "markdown" => self.to_markdown()?,
             "txt" | "text" => self.subnets_table(),
             _ => {
                 return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    format!("Unsupported format: {}. Supported formats: json, csv, txt", format)
+                    format!("Unsupported format: {}. Supported formats: json, csv, md, txt, xlsx, excel", format)
                 ));
             }
         };
-        
+
         let mut file = File::create(filename)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
                 format!("Error creating file {}: {}", filename, e)
             ))?;
-            
+
         file.write_all(content.as_bytes())
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
                 format!("Error writing to file {}: {}", filename, e)
             ))?;
-            
+
         Ok(())
-    }
-
-    // Removed duplicate get_efficiency method to resolve conflict
-
-    /// Get detailed information about a specific subnet
-    #[pyo3(name = "get_subnet_details")]
-    #[pyo3(text_signature = "($self, subnet_number)")]
-    pub fn get_subnet_details(&self, subnet_number: usize) -> PyResult<String> {
-        let subnet = self.get_row(subnet_number)?;
-        let req_hosts = self.inner.hosts_requirements.get(subnet_number - 1).unwrap_or(&0);
-        let usable_hosts = self.calculate_usable_hosts_for_subnet(&subnet.clone().into());
-        
-        Ok(format!(
-            "VLSM Subnet {} Details\n\
-            ────────────────────\n\
-            Required Hosts : {}\n\
-            Usable Hosts   : {}\n\
-            Network        : {}\n\
-            First Host     : {}\n\
-            Last Host      : {}\n\
-            Broadcast      : {}\n\
-            Efficiency     : {:.1}%",
-            subnet_number,
-            req_hosts,
-            usable_hosts,
-            subnet.direccion_red,
-            subnet.primera_ip,
-            subnet.ultima_ip,
-            subnet.broadcast,
-            if *req_hosts > 0 {
-                (usable_hosts as f64 / *req_hosts as f64) * 100.0
-            } else { 0.0 }
-        ))
     }
 
     // Properties
     #[getter]
-    fn ip(&self) -> String {
-        self.inner.base_calculator.original_ip().to_string()
+    fn base_ip(&self) -> String {
+        self.inner.base_ip().to_string()
     }
 
     #[getter]
-    fn hosts_requirements(&self) -> Vec<u32> {
-        self.inner.hosts_requirements.clone()
+    fn base_cidr(&self) -> u8 {
+        self.inner.base_cidr()
     }
 
     #[getter]
-    fn subnet_count(&self) -> usize {
-        self.inner.hosts_requirements.len()
+    fn network_class(&self) -> String {
+        self.inner.network_class().to_string()
     }
 
     #[getter]
-    fn total_hosts_required(&self) -> u32 {
-        self.inner.hosts_requirements.iter().sum()
+    fn host_requirements(&self) -> Vec<u32> {
+        self.inner.host_requirements().to_vec()
     }
 
     #[getter]
     fn efficiency(&self) -> f64 {
-        self.calculate_efficiency()
+        self.inner.efficiency()
+    }
+
+    #[getter]
+    fn utilization_percentage(&self) -> f64 {
+        self.inner.utilization_percentage()
+    }
+
+    #[getter]
+    fn total_hosts(&self) -> u32 {
+        self.inner.total_hosts()
+    }
+
+    #[getter]
+    fn subnet_count(&self) -> usize {
+        self.inner.subnets().len()
     }
 
     /// Default string representation
-    fn __str__(&self) -> String {
-        self.summary()
+    fn __str__(self_: PyRef<'_, Self>) -> PyResult<String> {
+        Ok(self_.summary())
     }
 
     /// Representation for debugging
     fn __repr__(&self) -> String {
         format!(
-            "VLSMCalculator(ip='{}', hosts_requirements={:?})",
-            self.inner.base_calculator.original_ip(),
-            self.inner.hosts_requirements
+            "VLSMCalculator(base_ip='{}', host_requirements={:?})",
+            self.inner.base_ip(),
+            self.inner.host_requirements()
         )
-    }
-}
-
-// Implementación de métodos privados para PyVLSMCalculator
-impl PyVLSMCalculator {
-    fn calculate_efficiency(&self) -> f64 {
-        let total_required: u32 = self.inner.hosts_requirements.iter().sum();
-        if total_required == 0 {
-            return 0.0;
-        }
-
-        let subnets = self.inner.get_vlsm_subnets();
-        let mut total_allocated = 0u32;
-
-        for (i, subnet) in subnets.iter().enumerate() {
-            let req_hosts = self.inner.hosts_requirements.get(i).unwrap_or(&0);
-            if *req_hosts > 0 {
-                total_allocated += *req_hosts;
-            }
-        }
-
-        (total_required as f64 / total_allocated as f64) * 100.0
-    }
-
-    fn calculate_usable_hosts_for_subnet(&self, subnet: &SubnetRow) -> u32 {
-        let first_ip: u32 = subnet.primera_ip.parse::<std::net::Ipv4Addr>()
-            .unwrap_or(std::net::Ipv4Addr::new(0, 0, 0, 0)).into();
-        let last_ip: u32 = subnet.ultima_ip.parse::<std::net::Ipv4Addr>()
-            .unwrap_or(std::net::Ipv4Addr::new(0, 0, 0, 0)).into();
-        
-        if last_ip >= first_ip {
-            last_ip - first_ip + 1
-        } else {
-            0
-        }
-    }
-}
-
-// Función de utilidad para crear un calculador VLSM rápido
-#[pyfunction]
-#[pyo3(signature = (ip, hosts_requirements))]
-#[pyo3(text_signature = "(ip, hosts_requirements)")]
-pub fn create_vlsm_calculator(ip: &str, hosts_requirements: Vec<u32>) -> PyResult<PyVLSMCalculator> {
-    PyVLSMCalculator::new(ip, hosts_requirements)
-}
-
-
-// Funciones auxiliares (las mismas que ya tenías)
-fn format_number(num: usize) -> String {
-    if num >= 1_000_000 {
-        format!("{:.1}M", num as f64 / 1_000_000.0)
-    } else if num >= 1_000 {
-        format!("{:.1}K", num as f64 / 1_000.0)
-    } else {
-        num.to_string()
-    }
-}
-
-fn truncate_string(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
-    } else {
-        s.to_string()
     }
 }

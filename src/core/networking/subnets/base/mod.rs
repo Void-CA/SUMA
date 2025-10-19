@@ -1,5 +1,6 @@
-pub mod subnet_calculator;
-pub mod traits;
-
-pub use subnet_calculator::{SubnetCalculator, SubnetRow};
-pub use traits::export_subnet_calculation;
+pub mod model;
+pub mod ip_tools;
+pub mod export_dtos;
+    
+pub use model::{BaseCalculator, SubnetRow};
+pub use export_dtos::{SubnetExport, NetworkExport};
