@@ -96,7 +96,7 @@ mod tests {
         };
         let pretty = subnet_row.to_pretty_string();
         println!("{}", pretty);
-        assert!(pretty.contains("SUBNET  1"));
+        assert!(pretty.contains("SUBNET   1"));
     }
         
     }
