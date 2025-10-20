@@ -1,10 +1,8 @@
-use std::collections::{HashSet, HashMap};
 use csv::Writer;
 use serde::Serialize;
 use serde_json::{to_string_pretty, to_value, Value};
-use rust_xlsxwriter::{Format, FormatBorder, Workbook, Worksheet, XlsxError};
 use crate::core::formatting::error::ExportError;
-use crate::core::formatting::utils::{build_hierarchical_excel, build_hierarchical_markdown, build_markdown_table, get_unique_headers, separate_fields, value_to_string_readable};
+use crate::core::formatting::utils::{build_hierarchical_excel, build_hierarchical_markdown, build_markdown_table};
 
 /// Trait que proporciona métodos para exportar datos serializable a diferentes formatos.
 pub trait Exportable: Serialize {

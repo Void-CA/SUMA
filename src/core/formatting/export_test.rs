@@ -2,7 +2,7 @@
 mod tests {
     use serde::Serialize;
     use crate::core::formatting::export::Exportable;
-    use crate::core::formatting::utils::{get_unique_headers, separate_fields, value_to_string_readable};
+    
     use std::fs;
 
     #[derive(Serialize, Debug, PartialEq)]
@@ -422,7 +422,6 @@ mod tests {
 // tests/export_hierarchical_tests.rs
 #[cfg(test)]
 mod export_hierarchical_tests {use std::collections::HashMap;
-use super::*;
     use serde::Serialize;
     use std::fs;
     use serde_json::Value;

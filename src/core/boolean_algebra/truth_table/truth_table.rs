@@ -335,7 +335,7 @@ mod tests {
         // Test missing column
         let variables = vec!["A".to_string()];
         let combinations = vec![vec![true]];
-        let mut columns = HashMap::new();
+        let columns = HashMap::new();
         let column_order = vec!["A".to_string()];
         assert!(
             TruthTable::new(variables, columns, column_order, combinations).is_err(),

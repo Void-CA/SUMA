@@ -1,6 +1,5 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use std::net::Ipv4Addr;
 
 use crate::bindings::networking::subnet_row::PySubnetRow;
 use crate::core::{SubnetRow, BaseCalculator, VLSMCalculator};

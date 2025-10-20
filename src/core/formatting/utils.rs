@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use rust_xlsxwriter::{Format, FormatBorder, Workbook, Worksheet, XlsxError};
 use serde_json::Value;
 use crate::core::formatting::error::ExportError;
-use crate::core::formatting::export::Exportable;
 
 pub fn get_unique_headers(arr: &[Value]) -> Vec<&str> {
     let mut headers = HashSet::new();

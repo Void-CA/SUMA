@@ -52,8 +52,8 @@ impl PySubnetRow {
     pub fn to_pretty_string(&self) -> String {
         format!(
             "┌─ SUBNET {:3} ──────────────────────────────────────────────────────────┐\n\
-        {:2}Network: {:15} │ First: {:15} │ Hosts: {:9}  │\n\
-                 {:2}Broadcast: {:13} │ Last:  {:15} │         {:2}        │\n\
+        {:2}Network: {:15} │ First: {:15} │ Hosts: {:9}  \n\
+                 {:2}Broadcast: {:13} │ Last:  {:15} │         {:2}        \n\
             └───────────────────────────────────────────────────────────────────────┘",
             self.subred,
             "",
