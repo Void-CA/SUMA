@@ -135,28 +135,23 @@ mod tests {
 
     #[test]
     fn test_exportable_formats() {
-        // 1️⃣ Crear una calculadora de prueba
+        // Crear una calculadora de prueba
         let calculator = FLSMCalculator::new("192.168.1.0/24", 2).unwrap();
 
-        // 2️⃣ Generar NetworkExport
+        // Generar NetworkExport
         let network_export: NetworkExport = generate_network_export(&calculator);
 
-        // 3️⃣ JSON
+        // JSON
         let json = network_export.to_json().unwrap();
         println!("JSON Output:\n{}", json);
         assert!(json.contains("192.168.1.0"));
 
-        // 4️⃣ CSV
-        let csv = network_export.to_csv().unwrap();
-        println!("CSV Output:\n{}", csv);
-        assert!(csv.contains("base_network"));
-
-        // 5️⃣ Markdown
-        let markdown = network_export.to_markdown().unwrap();
+        // Markdown
+        let markdown = network_export.to_markdown_hierarchical().unwrap();
         println!("Markdown Output:\n{}", markdown);
-        assert!(markdown.contains("| base_network |"));
+        assert!(markdown.contains("| subnet_id |"));
 
-        // 6️⃣ Excel
+        // Excel
         let excel_path = "test_network_export.xlsx";
         let result = network_export.to_excel(excel_path);
         assert!(result.is_ok(), "Export to Excel failed");

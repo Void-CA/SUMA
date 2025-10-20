@@ -52,15 +52,19 @@ impl PySubnetRow {
     pub fn to_pretty_string(&self) -> String {
         format!(
             "┌─ SUBNET {:3} ──────────────────────────────────────────────────────────┐\n\
-            │  Network: {:15} │ First: {:15} │ Hosts: {:8}  │\n\
-            │  Broadcast: {:15} │ Last:  {:15} │           │\n\
-            └────────────────────────────────────────────────────────────────────────┘",
+        {:2}Network: {:15} │ First: {:15} │ Hosts: {:9}  │\n\
+                 {:2}Broadcast: {:13} │ Last:  {:15} │         {:2}        │\n\
+            └───────────────────────────────────────────────────────────────────────┘",
             self.subred,
+            "",
             self.direccion_red,
             self.primera_ip,
             self.hosts_per_net,
+            "",
             self.broadcast,
-            self.ultima_ip
+            self.ultima_ip,
+            ""
+
         )
     }
 
@@ -75,3 +79,24 @@ impl PySubnetRow {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pretty_string() {
+        let subnet_row = PySubnetRow {
+            subred: 1,
+            direccion_red: "192.168.1.0".to_string(),
+            primera_ip: "192.168.1.1".to_string(),
+            ultima_ip: "192.168.1.254".to_string(),
+            broadcast: "192.168.1.255".to_string(),
+            hosts_per_net: 256,
+        };
+        let pretty = subnet_row.to_pretty_string();
+        println!("{}", pretty);
+        assert!(pretty.contains("SUBNET  1"));
+    }
+        
+    }
