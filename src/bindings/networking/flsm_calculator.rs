@@ -73,24 +73,41 @@ impl PyFLSMCalculator {
     #[pyo3(text_signature = "($self)")]
     pub fn subnets_table(&self) -> String {
         let subnets = self.inner.subnets();
-        
-        let mut output = String::new();
-        output.push_str("Subnet │ Network         │ First Host     │ Last Host      │ Broadcast      │ Hosts\n");
-        output.push_str("───────┼─────────────────┼────────────────┼────────────────┼────────────────┼───────\n");
-        
-        for subnet in subnets {
-            output.push_str(&format!(
-                "{:6} │ {:15} │ {:15} │ {:15} │ {:15} │ {:5}\n",
-                subnet.subred,
-                subnet.direccion_red,
-                subnet.primera_ip,
-                subnet.ultima_ip,
-                subnet.broadcast,
-                subnet.hosts_per_net
-            ));
-        }
-        
-        output
+let mut output = String::new();
+
+// Column widths - ajusta según necesites
+let widths = [8usize, 18usize, 18usize, 18usize, 18usize, 8usize];
+let headers = ["Subnet", "Network", "First Host", "Last Host", "Broadcast", "Hosts"];
+
+// Header
+output.push_str(&format!(
+    "{:<w0$} │ {:<w1$} │ {:<w2$} │ {:<w3$} │ {:<w4$} │ {:>w5$}\n",
+    headers[0], headers[1], headers[2], headers[3], headers[4], headers[5],
+    w0 = widths[0], w1 = widths[1], w2 = widths[2], w3 = widths[3], w4 = widths[4], w5 = widths[5]
+));
+
+// Separator line
+let separator = widths.iter()
+    .map(|&w| "─".repeat(w))
+    .collect::<Vec<String>>()
+    .join("─┼─");
+output.push_str(&format!("{}\n", separator));
+
+// Rows
+for subnet in subnets {
+    output.push_str(&format!(
+        "{:<w0$} │ {:<w1$} │ {:<w2$} │ {:<w3$} │ {:<w4$} │ {:>w5$}\n",
+        subnet.subred,
+        subnet.direccion_red,
+        subnet.primera_ip,
+        subnet.ultima_ip,
+        subnet.broadcast,
+        subnet.hosts_per_net,
+        w0 = widths[0], w1 = widths[1], w2 = widths[2], w3 = widths[3], w4 = widths[4], w5 = widths[5]
+    ));
+}
+
+output
     }
 
     /// Prints the subnet table to stdout.
@@ -161,7 +178,7 @@ impl PyFLSMCalculator {
     #[pyo3(name = "to_csv")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_csv(&self) -> PyResult<String> {
-        self.inner.to_csv().map_err(|e| {
+        SubnetRow::to_csv(self.inner.subnets()).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
         })
     }
@@ -169,7 +186,7 @@ impl PyFLSMCalculator {
     #[pyo3(name = "to_markdown")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_markdown(&self) -> PyResult<String> {
-        self.inner.to_markdown().map_err(|e| {
+        self.inner.to_markdown_hierarchical().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
         })
     }
@@ -282,5 +299,17 @@ impl PyFLSMCalculator {
             self.inner.base_ip(),
             self.inner.subnet_count
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[test]
+    fn test_subnets_table_formatting() {
+        let calculator = PyFLSMCalculator::new("192.168.1.0", 24);
+        println!("{}", calculator.unwrap().subnets_table());
+        assert!(true);
     }
 }

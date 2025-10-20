@@ -51,21 +51,16 @@ impl PySubnetRow {
     #[pyo3(text_signature = "($self)")]
     pub fn to_pretty_string(&self) -> String {
         format!(
-            "┌─────────────────────────┐\n\
-             │      SUBNET {:3}         │\n\
-             ├─────────────────────────┤\n\
-             │ Network:   {:15} │\n\
-             │ First:     {:15} │\n\
-             │ Last:      {:15} │\n\
-             │ Broadcast: {:15} │\n\
-             │ Hosts:     {:15} │\n\
-             └─────────────────────────┘",
+            "┌─ SUBNET {:3} ──────────────────────────────────────────────────────────┐\n\
+            │  Network: {:15} │ First: {:15} │ Hosts: {:8}  │\n\
+            │  Broadcast: {:15} │ Last:  {:15} │           │\n\
+            └────────────────────────────────────────────────────────────────────────┘",
             self.subred,
             self.direccion_red,
             self.primera_ip,
-            self.ultima_ip,
+            self.hosts_per_net,
             self.broadcast,
-            self.hosts_per_net
+            self.ultima_ip
         )
     }
 

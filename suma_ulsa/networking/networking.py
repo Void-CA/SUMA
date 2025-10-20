@@ -9,7 +9,7 @@ except ImportError:
     pass
 
 __all__ = [
-    "SubnetCalculator",
+    "FLSMCalculator",
     "SubnetRow",
     "VLSMCalculator"
 ]

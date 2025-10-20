@@ -68,11 +68,29 @@ impl PyVLSMCalculator {
     pub fn subnets_table(&self) -> String {
         let subnets = self.inner.subnets();
         let requirements = self.inner.host_requirements();
-        
+
         let mut output = String::new();
-        output.push_str("Subnet │ Network         │ First Host     │ Last Host      │ Broadcast      │ Hosts │ Required │ Usage\n");
-        output.push_str("───────┼─────────────────┼────────────────┼────────────────┼────────────────┼───────┼──────────┼───────\n");
-        
+
+        // Definir anchos de columna
+        let widths = [7, 15, 15, 15, 15, 7, 10, 7];
+        let headers = ["Subnet", "Network", "First Host", "Last Host", "Broadcast", "Hosts", "Required", "Usage"];
+
+        // Header
+        output.push_str(&format!(
+            "{:<w0$} │ {:<w1$} │ {:<w2$} │ {:<w3$} │ {:<w4$} │ {:>w5$} │ {:>w6$} │ {:>w7$}\n",
+            headers[0], headers[1], headers[2], headers[3], headers[4], headers[5], headers[6], headers[7],
+            w0 = widths[0], w1 = widths[1], w2 = widths[2], w3 = widths[3], w4 = widths[4], 
+            w5 = widths[5], w6 = widths[6], w7 = widths[7]
+        ));
+
+        // Separator line
+        let separator = widths.iter()
+            .map(|&w| "─".repeat(w))
+            .collect::<Vec<String>>()
+            .join("─┼─");
+        output.push_str(&format!("{}\n", separator));
+
+        // Data rows
         for (i, subnet) in subnets.iter().enumerate() {
             let required = requirements.get(i).copied().unwrap_or(0);
             let usage = if subnet.hosts_per_net > 0 {
@@ -82,7 +100,7 @@ impl PyVLSMCalculator {
             };
             
             output.push_str(&format!(
-                "{:6} │ {:15} │ {:15} │ {:15} │ {:15} │ {:5} │ {:8} │ {:5.1}%\n",
+                "{:<w0$} │ {:<w1$} │ {:<w2$} │ {:<w3$} │ {:<w4$} │ {:>w5$} │ {:>w6$} │ {:>w7$.1}%\n",
                 subnet.subred,
                 subnet.direccion_red,
                 subnet.primera_ip,
@@ -90,12 +108,14 @@ impl PyVLSMCalculator {
                 subnet.broadcast,
                 subnet.hosts_per_net,
                 required,
-                usage
+                usage,
+                w0 = widths[0], w1 = widths[1], w2 = widths[2], w3 = widths[3], w4 = widths[4],
+                w5 = widths[5], w6 = widths[6], w7 = widths[7]
             ));
         }
-        
+
         output
-    }
+}
 
     /// Prints the subnet table to stdout.
     #[pyo3(name = "print_table")]
@@ -163,7 +183,7 @@ impl PyVLSMCalculator {
     #[pyo3(name = "to_csv")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_csv(&self) -> PyResult<String> {
-        self.inner.to_csv().map_err(|e| {
+        SubnetRow::to_csv(self.inner.subnets()).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
         })
     }
@@ -171,7 +191,7 @@ impl PyVLSMCalculator {
     #[pyo3(name = "to_markdown")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_markdown(&self) -> PyResult<String> {
-        self.inner.to_markdown().map_err(|e| {
+        self.inner.to_markdown_hierarchical().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
         })
     }

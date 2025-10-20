@@ -1,11 +1,11 @@
 from .networking import (
-    SubnetCalculator,
+    FLSMCalculator,
     VLSMCalculator,
     SubnetRow,
 )
 
 __all__ = [
-    "SubnetCalculator",
+    "FLSMCalculator",
     "SubnetRow",
     "VLSMCalculator"
 ]

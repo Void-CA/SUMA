@@ -1,5 +1,6 @@
 // models.rs
-use std::net::Ipv4Addr;
+use std::{error::Error, net::Ipv4Addr};
+use csv::Writer;
 use serde::{Deserialize, Serialize};
 use crate::core::networking::subnets::base::ip_tools::*;
 
@@ -32,6 +33,16 @@ impl SubnetRow {
             broadcast,
             hosts_per_net,
         }
+    }
+
+    pub fn to_csv(subnets: &[Self]) -> Result<String, Box<dyn Error>> {
+        let mut wtr = Writer::from_writer(vec![]);
+        for s in subnets {
+            wtr.serialize(s)?; // escribe una fila
+        }
+        wtr.flush()?;
+        let data = String::from_utf8(wtr.into_inner()?)?;
+        Ok(data)
     }
 }
 
