@@ -64,7 +64,7 @@ pub trait BaseCalculator {
     fn total_hosts(&self) -> u32 {
         self.subnets().iter().map(|s| s.hosts_per_net).sum()
     }
-    
+
     fn utilization_percentage(&self) -> f64 {
         let total_capacity: u32 = self.subnets().iter().map(|s| s.hosts_per_net).sum();
         if total_capacity == 0 {
@@ -76,7 +76,7 @@ pub trait BaseCalculator {
             let last = u32::from(s.ultima_ip);
             if last >= first { last - first + 1 } else { 0 }
         }).sum();
-        
+
         (total_used as f64 / total_capacity as f64) * 100.0
     }
 }

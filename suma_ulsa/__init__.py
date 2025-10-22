@@ -38,7 +38,7 @@ __all__ = [
     "truth_table_from_expr",
 
     # Networking
-    "SubnetCalculator",
+    "FLSMCalculator",
     "SubnetRow",
     "VLSMCalculator"
 ]

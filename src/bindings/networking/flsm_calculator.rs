@@ -46,8 +46,7 @@ impl PyFLSMCalculator {
             Subnet Mask        : {mask}\n\
             Subnet Size        : {size} addresses\n\
             Hosts per Subnet   : {hosts}\n\
-            Total Subnets      : {total}\n\
-            Utilization        : {utilization:.1}%\n",
+            Total Subnets      : {total}\n",
             ip = self.inner.base_ip(),
             class = self.inner.network_class(),
             cidr = self.inner.base_cidr(),
@@ -56,7 +55,6 @@ impl PyFLSMCalculator {
             size = self.inner.subnet_size(),
             hosts = self.inner.hosts_per_subnet(),
             total = subnets.len(),
-            utilization = self.inner.utilization_percentage()
         )
     }
 
@@ -153,7 +151,6 @@ output
         dict.set_item("subnet_mask", self.inner.new_mask().to_string())?;
         dict.set_item("subnet_size", self.inner.subnet_size())?;
         dict.set_item("hosts_per_subnet", self.inner.hosts_per_subnet())?;
-        dict.set_item("utilization_percentage", self.inner.utilization_percentage())?;
 
         let subnets = self.get_subnets();
         let py_subnets = PyList::empty(py);
@@ -247,8 +244,8 @@ output
     }
 
     #[getter]
-    fn subnet_count(&self) -> usize {
-        self.inner.subnet_count
+    fn subnet_count(&self) -> u32 {
+        self.inner.hosts_per_subnet
     }
 
     #[getter]
@@ -276,10 +273,6 @@ output
         self.inner.hosts_per_subnet()
     }
 
-    #[getter]
-    fn utilization_percentage(&self) -> f64 {
-        self.inner.utilization_percentage()
-    }
 
     #[getter]
     fn total_hosts(&self) -> u32 {

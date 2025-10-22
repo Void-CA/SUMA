@@ -60,13 +60,16 @@ class FLSMCalculator:
 
     def summary(self) -> str:
         """Devuelve un resumen legible (múltiples líneas) del cálculo."""
+    
     def print_summary(self) -> None:
-        """Imprime el resumen por stdout (conveniencia)."""
+        """Imprime el resumen en stdout (conveniencia)."""
+        
     def subnets_table(self) -> str:
         """Devuelve una tabla monoespaciada (string) con todas las subredes calculadas."""
-    def print_table(self) -> None:
-        """Imprime la tabla por stdout (conveniencia)."""
 
+    def print_table(self) -> None:
+        """Imprime la tabla de subredes en stdout (conveniencia)."""
+        
     def get_subnets(self) -> List[SubnetRow]:
         """Devuelve una lista de :class:`SubnetRow` con los datos estructurados."""
     def get_subnet(self, subnet_number: int) -> SubnetRow:

@@ -7,8 +7,10 @@ use crate::core::networking::subnets::base::ip_tools::*;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FLSMCalculator {
     base_ip: Ipv4Addr,
+    network_address: Ipv4Addr,
     base_cidr: u8,
     pub subnet_count: usize,
+    pub hosts_per_subnet: u32,
     subnets: Vec<SubnetRow>,
     pub(crate) new_cidr: u8,
 }
@@ -16,11 +18,14 @@ pub struct FLSMCalculator {
 impl FLSMCalculator {
     pub fn new(ip: &str, subnet_count: usize) -> Result<Self, String> {
         let (base_ip, base_cidr) = parse_ip_cidr(ip)?;
-        
+        let hosts_per_subnet = hosts_per_subnet(cidr_to_mask(base_cidr));
+        let network_address = calculate_network_address(base_ip, cidr_to_mask(base_cidr));
         let mut calculator = Self {
             base_ip,
+            network_address,
             base_cidr,
             subnet_count,
+            hosts_per_subnet,
             subnets: Vec::new(),
             new_cidr: 0,
         };
@@ -75,7 +80,7 @@ impl BaseCalculator for FLSMCalculator {
         self.subnets.clear();
         let mask = self.new_mask();
         let subnet_size = self.subnet_size();
-        let mut current_network = calculate_network_address(self.base_ip, mask);
+        let mut current_network = calculate_network_address(self.network_address, mask);
 
         for i in 0..self.subnet_count {
             let subnet_row = SubnetRow::new(

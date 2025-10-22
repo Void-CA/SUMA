@@ -1,5 +1,6 @@
 // vlsm_calculator.rs
 use std::net::Ipv4Addr;
+use pyo3::pyclass::boolean_struct::False;
 use serde::{Deserialize, Serialize};
 use crate::core::networking::subnets::base::model::{BaseCalculator, SubnetRow};
 use crate::core::networking::subnets::base::ip_tools::*;
@@ -52,23 +53,22 @@ impl VLSMCalculator {
     fn calculate_subnet_size(&self, cidr: u8) -> u32 {
         2u32.pow((32 - cidr) as u32)
     }
-    
+
     pub fn efficiency(&self) -> f64 {
         let total_required: u32 = self.host_requirements.iter().sum();
         if total_required == 0 {
             return 0.0;
         }
-        
-        let total_allocated: u32 = self.subnets.iter()
-            .enumerate()
-            .map(|(i, subnet)| {
-                self.host_requirements.get(i).unwrap_or(&0).min(&subnet.hosts_per_net)
-            })
-            .sum();
-            
+
+        let total_allocated: u32 = self.host_requirements.iter().map(|&hosts| {
+            let needed = hosts + 2; // incluye red y broadcast
+            let exp = (needed as f64).log2().ceil() as u32;
+            2u32.pow(exp) - 2 // hosts útiles en la subred
+        }).sum();
+
         (total_required as f64 / total_allocated as f64) * 100.0
     }
-    
+
     pub fn host_requirements(&self) -> &[u32] {
         &self.host_requirements
     }
@@ -125,10 +125,10 @@ impl BaseCalculator for VLSMCalculator {
             
             current_network = increment_ip(network, subnet_size);
         }
-        
+
         // Reordenar para mantener el orden original
         self.allocated_subnets.sort_by(|a, b| a.original_index.cmp(&b.original_index));
-        
+
         for allocated in &self.allocated_subnets {
             let subnet_row = SubnetRow::new(
                 (allocated.original_index + 1) as u32,

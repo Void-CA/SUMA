@@ -41,16 +41,13 @@ impl PyVLSMCalculator {
             Network Class      : {class}\n\
             Base CIDR          : /{cidr}\n\
             Total Subnets      : {total}\n\
-            Total Hosts        : {hosts}\n\
-            Efficiency         : {efficiency:.1}%\n\
-            Utilization        : {utilization:.1}%\n",
+            Total Hosts        : {hosts}\n",
+
             ip = self.inner.base_ip(),
             class = self.inner.network_class(),
             cidr = self.inner.base_cidr(),
             total = subnets.len(),
-            hosts = self.inner.total_hosts(),
-            efficiency = self.inner.efficiency(),
-            utilization = self.inner.utilization_percentage()
+            hosts = self.inner.total_hosts()
         )
     }
 
@@ -116,13 +113,13 @@ impl PyVLSMCalculator {
         output
 }
 
-    /// Prints the subnet table to stdout.
+     /// Prints the subnet table to stdout.
     #[pyo3(name = "print_table")]
     #[pyo3(text_signature = "($self)")]
     pub fn print_table(&self) {
         println!("{}", self.subnets_table());
     }
-
+    
     /// Returns all subnet rows as Python objects
     #[pyo3(name = "get_subnets")]
     #[pyo3(text_signature = "($self)")]
