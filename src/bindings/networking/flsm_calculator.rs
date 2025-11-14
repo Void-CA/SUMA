@@ -163,7 +163,6 @@ output
     }
 
     // Export methods
-    #[pyo3(name = "to_json")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_json(&self) -> PyResult<String> {
         self.inner.to_json().map_err(|e| {
@@ -171,7 +170,6 @@ output
         })
     }
 
-    #[pyo3(name = "to_csv")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_csv(&self) -> PyResult<String> {
         SubnetRow::to_csv(self.inner.subnets()).map_err(|e| {
@@ -179,7 +177,6 @@ output
         })
     }
 
-    #[pyo3(name = "to_markdown")]
     #[pyo3(text_signature = "($self)")]
     pub fn to_markdown(&self) -> PyResult<String> {
         self.inner.to_markdown_hierarchical().map_err(|e| {
@@ -187,7 +184,6 @@ output
         })
     }
 
-    #[pyo3(name = "to_excel")]
     #[pyo3(signature = (path, /))]
     #[pyo3(text_signature = "($self, path)")]
     pub fn to_excel(&self, path: &str) -> PyResult<()> {
@@ -196,7 +192,6 @@ output
         })
     }
 
-    #[pyo3(name = "export_to_file")]
     #[pyo3(text_signature = "($self, filename, format)")]
     pub fn export_to_file(&self, filename: &str, format: &str) -> PyResult<()> {
         use std::fs::File;

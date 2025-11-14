@@ -283,7 +283,7 @@ pub fn process_value_for_excel(
             worksheet.autofit();
 
             // Soltar la referencia del worksheet antes de crear nuevas hojas en el workbook
-            drop(worksheet);
+            let _ = worksheet;
 
             // Procesar objetos anidados fuera del borrow mutable del worksheet
             for (key, nested_map) in nested_object_fields {

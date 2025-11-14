@@ -23,6 +23,11 @@ serde_json = { version = "1.0.145", features = ["preserve_order"] }
 serde_yaml = "0.9.34"
 csv = "1.4.0"
 tempfile = "3.23.0"
+thiserror = "2.0.17"
+float-cmp = "0.10.0"
+num = "0.4.3"
+num-traits = "0.2.19"
+ordered-float = "5.1.0"
 
 [workspace]
 resolver = "2"

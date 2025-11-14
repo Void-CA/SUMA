@@ -196,3 +196,13 @@ class VLSMCalculator:
 
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
+
+def compress_ipv6(ipv6_address: str) -> str: ...
+"""
+Función para comprimir una dirección IPv6 de su forma larga a su forma corta.
+"""
+
+def expand_ipv6(ipv6_address: str) -> str: ...
+"""
+Función para comprimir una dirección IPv6 expandida a su forma corta.
+"""

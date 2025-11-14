@@ -422,7 +422,11 @@ mod tests {
             tree.in_order().iter().map(|&&x| x).collect::<Vec<i32>>(),
             vec![1, 2, 3, 4, 5, 6, 7]
         );
-        
+
+        println!("{}", tree.print_tree());
+        println!("Pre_order: {:?}", tree.pre_order());
+        println!("In_order: {:?}", tree.in_order());
+        println!("Post_order: {:?}", tree.post_order());
         assert_eq!(
             tree.pre_order().iter().map(|&&x| x).collect::<Vec<i32>>(),
             vec![4, 2, 1, 3, 6, 5, 7]
@@ -466,6 +470,7 @@ mod tests {
         tree.insert(1);
         tree.insert(4);
         tree.insert(2);
+        
 
         let in_order_str = tree.print_in_order();
         println!("{}", in_order_str);

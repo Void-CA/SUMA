@@ -11,5 +11,7 @@ except ImportError:
 __all__ = [
     "FLSMCalculator",
     "SubnetRow",
-    "VLSMCalculator"
+    "VLSMCalculator",
+    "compress_ipv6",
+    "expand_ipv6",
 ]
