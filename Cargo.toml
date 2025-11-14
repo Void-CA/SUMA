@@ -31,5 +31,6 @@ ordered-float = "5.1.0"
 
 [workspace]
 resolver = "2"
+members = ["suma_core"]
 
 [dev-dependencies]

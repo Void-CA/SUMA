@@ -598,6 +598,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc5a4e564e38c699f2880d3fda590bedc2e69f3f84cd48b457bd892ce61d0aa9"
 dependencies = [
  "crc32fast",
+ "libz-rs-sys",
  "miniz_oxide",
 ]
 
@@ -1152,6 +1153,15 @@ name = "libm"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
+
+[[package]]
+name = "libz-rs-sys"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "840db8cf39d9ec4dd794376f38acc40d0fc65eec2a8f484f7fd375b84602becd"
+dependencies = [
+ "zlib-rs",
+]
 
 [[package]]
 name = "linux-raw-sys"
@@ -2381,7 +2391,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a93932326025e1aa7029744f7782284c2fe990589f58c9e0265183a249193cba"
 dependencies = [
  "regex",
- "zip",
+ "zip 2.4.2",
+]
+
+[[package]]
+name = "rust_xlsxwriter"
+version = "0.92.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af3a05e4f65e6b9485c47be9d51b0f31ddc52f0279572e27de6e10e5212520e4"
+dependencies = [
+ "zip 4.6.1",
 ]
 
 [[package]]
@@ -2758,6 +2777,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "suma_core"
+version = "0.1.0"
+dependencies = [
+ "csv",
+ "num-traits",
+ "ordered-float",
+ "rust_xlsxwriter 0.92.0",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "suma_ulsa"
 version = "0.1.0"
 dependencies = [
@@ -2768,7 +2801,7 @@ dependencies = [
  "ordered-float",
  "polars",
  "pyo3",
- "rust_xlsxwriter",
+ "rust_xlsxwriter 0.74.0",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -3652,6 +3685,26 @@ dependencies = [
  "thiserror",
  "zopfli",
 ]
+
+[[package]]
+name = "zip"
+version = "4.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1"
+dependencies = [
+ "arbitrary",
+ "crc32fast",
+ "flate2",
+ "indexmap",
+ "memchr",
+ "zopfli",
+]
+
+[[package]]
+name = "zlib-rs"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f06ae92f42f5e5c42443fd094f245eb656abf56dd7cce9b8b263236565e00f2"
 
 [[package]]
 name = "zopfli"
