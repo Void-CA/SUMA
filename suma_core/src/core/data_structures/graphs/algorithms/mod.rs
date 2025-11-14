@@ -1,3 +1,3 @@
-mod djikstra;
-mod search;
-mod a_star;
+pub mod djikstra;
+pub mod search;
+pub mod a_star;
