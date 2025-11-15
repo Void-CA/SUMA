@@ -45,6 +45,37 @@ where
     None
 }
 
+pub fn bfs_traversal<G>(
+    graph: &G,
+    start: G::NodeId,
+) -> (std::collections::HashSet<G::NodeId>, Vec<G::NodeId>)
+where
+    G: GraphBase,
+    G::NodeId: Clone + Eq + std::hash::Hash,
+{
+    use std::collections::{VecDeque, HashSet};
+
+    let mut queue = VecDeque::new();
+    let mut visited = HashSet::new();
+    let mut traversal_order = Vec::new();
+
+    queue.push_back(start.clone());
+    visited.insert(start.clone());
+
+    while let Some(current) = queue.pop_front() {
+        traversal_order.push(current.clone());
+
+        for neighbor in graph.neighbors(current.clone()) {
+            if !visited.contains(&neighbor) {
+                visited.insert(neighbor.clone());
+                queue.push_back(neighbor);
+            }
+        }
+    }
+
+    ( visited, traversal_order)
+}
+
 pub fn dfs<G>(
     graph: &G,
     start: G::NodeId,
@@ -88,6 +119,37 @@ where
     }
 
     None
+}
+
+pub fn dfs_traversal<G>(
+    graph: &G,
+    start: G::NodeId,
+) -> (std::collections::HashSet<G::NodeId>, Vec<G::NodeId>)
+where
+    G: GraphBase,
+    G::NodeId: Clone + Eq + std::hash::Hash,
+{
+    use std::collections::{VecDeque, HashSet};
+
+    let mut stack = VecDeque::new();
+    let mut visited = HashSet::new();
+    let mut traversal_order = Vec::new();
+
+    stack.push_back(start.clone());
+    visited.insert(start.clone());
+
+    while let Some(current) = stack.pop_back() {
+        traversal_order.push(current.clone());
+
+        for neighbor in graph.neighbors(current.clone()) {
+            if !visited.contains(&neighbor) {
+                visited.insert(neighbor.clone());
+                stack.push_back(neighbor);
+            }
+        }
+    }
+
+    ( visited, traversal_order)
 }
 
 #[cfg(test)]
