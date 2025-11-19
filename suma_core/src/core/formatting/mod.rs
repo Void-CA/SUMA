@@ -1,5 +1,6 @@
 pub mod export;
 pub mod macros;
-mod error;
+pub mod error;
 mod export_test;
 mod utils;
+pub mod visualizable;

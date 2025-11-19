@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use num_traits::{Num};
-use crate::core::data_structures::graphs::{BaseGraph, GraphBase};
+use crate::core::data_structures::graphs::{BaseGraph, DirectedSimpleGraph, GraphBase};
 use crate::core::data_structures::graphs::traits::WeightedGraph;
 use crate::core::data_structures::graphs::weighted::Weight;
+use crate::core::formatting::error::ExportError;
+use crate::core::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 
 #[derive(Debug, Clone)]
 pub struct UndirectedWeightedGraph<N, E: Weight> {
@@ -88,6 +90,50 @@ impl<N: Default, E: Weight> UndirectedWeightedGraph<N, E> {
     }
 }
 
+impl<N, E: Weight + std::fmt::Display> ToDot for UndirectedWeightedGraph<N, E> {
+    fn to_dot(&self) -> Result<String, ExportError> {
+        let mut s = String::from("graph G {\n");
+
+        for (from, to) in self.edges() {
+            if let Some(weight) = self.edge_data(from, to) {
+                s.push_str(&format!("  {} -- {} [label=\"{}\"];\n", from, to, weight));
+            }
+        }
+
+        s.push('}');
+        Ok(s)
+    }
+}
+
+
+impl<N, E: Weight + std::fmt::Display> ToMermaid for UndirectedWeightedGraph<N, E> {
+    fn to_mermaid(&self) -> Result<String, ExportError> {
+        let mut s = String::from("graph TD\n");
+
+        for (from, to) in self.edges() {
+            if let Some(weight) = self.edge_data(from, to) {
+                s.push_str(&format!("  {} ---|{}| {}\n", from, weight, to));
+            }
+        }
+
+        Ok(s)
+    }
+}
+
+impl<N, E: Weight + std::fmt::Display> ToPlantUml for UndirectedWeightedGraph<N, E> {
+    fn to_plantuml(&self) -> Result<String, ExportError> {
+        let mut s = String::from("@startuml\n");
+
+        for (from, to) in self.edges() {
+            if let Some(weight) = self.edge_data(from, to) {
+                s.push_str(&format!("  {} -- {} : {}\n", from, to, weight));
+            }
+        }
+
+        s.push_str("@enduml");
+        Ok(s)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -152,4 +198,15 @@ mod tests {
         assert_eq!(graph_f32.edge_weight(n1, n2), Some(1.5.into()));
     }
 
+    #[test]
+    fn test_visualization() {
+        let mut graph = UndirectedWeightedGraph::new();
+        let node1 = graph.base.add_node("node1");
+        let node2 = graph.base.add_node("node2");
+
+        graph.add_weighted_edge(node1, node2, 4);
+
+        let dot_representation = graph.to_dot().unwrap();
+        println!("{}", dot_representation);
+    }
 }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use super::super::traits::GraphBase;
+use crate::core::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 
 #[derive(Debug, Clone)]
 pub struct BaseGraph<T, E> {
@@ -39,13 +40,12 @@ impl<T, E> BaseGraph<T, E> {
 }
 
 use std::hash::Hash;
+use crate::core::formatting::error::ExportError;
 
 impl<T, E> GraphBase for BaseGraph<T, E>
 where
     T: Clone,
 {
-    type NodeId = usize;
-    type NodeData = T;
     type EdgeData = E;
 
     fn nodes(&self) -> Vec<Self::NodeId> {
@@ -69,6 +69,48 @@ where
             .keys()
             .filter_map(|(from, to)| if *from == node { Some(*to) } else { None })
             .collect()
+    }
+
+    type NodeId = usize;
+    type NodeData = T;
+
+}
+
+impl<T, E> ToDot for BaseGraph<T, E> {
+    fn to_dot(&self) -> Result<String, ExportError> {
+        let mut s = String::from("digraph G {\n");
+
+        for ((from, to), _) in &self.edges {
+            s.push_str(&format!("  {} -> {};\n", from, to));
+        }
+
+        s.push('}');
+        Ok(s)
+    }
+}
+
+impl<T, E> ToMermaid for BaseGraph<T, E> {
+    fn to_mermaid(&self) -> Result<String, ExportError> {
+        let mut s = String::from("graph TD\n");
+
+        for ((from, to), _) in &self.edges {
+            s.push_str(&format!("  {} --> {}\n", from, to));
+        }
+
+        Ok(s)
+    }
+}
+
+impl<T, E> ToPlantUml for BaseGraph<T, E> {
+    fn to_plantuml(&self) -> Result<String, ExportError> {
+        let mut s = String::from("@startuml\n");
+
+        for ((from, to), _) in &self.edges {
+            s.push_str(&format!("  {} --> {}\n", from, to));
+        }
+
+        s.push_str("@enduml");
+        Ok(s)
     }
 }
 
@@ -175,5 +217,18 @@ mod tests {
 
         // Ahora debería verificar que la arista NO existe
         assert!(!graph.edges.contains_key(&(n0, n1)));
+    }
+
+    #[test]
+    fn test_dot() {
+        let mut graph: BaseGraph<i32, &str> = BaseGraph::new();
+        let n0 = graph.add_node(0);
+        let n1 = graph.add_node(1);
+        graph.add_edge(n0, n1, "edge");
+
+        let dot_output = graph.to_dot().unwrap();
+        let expected_output = "digraph G {\n  0 -> 1;\n}";
+
+        assert_eq!(dot_output, expected_output);
     }
 }

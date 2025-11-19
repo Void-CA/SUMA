@@ -3,6 +3,8 @@ use crate::core::data_structures::graphs::{
     implementations::base_graph::BaseGraph,
     traits::{GraphBase, DirectedGraph}
 };
+use crate::core::formatting::error::ExportError;
+use crate::core::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 
 pub struct DirectedSimpleGraph<T> {
     pub base: BaseGraph<T, ()>,
@@ -67,6 +69,45 @@ impl<T> DirectedGraph for DirectedSimpleGraph<T> {
         self.adjacency.get(&node).cloned().unwrap_or_default()
     }
 }
+
+impl<T> ToDot for DirectedSimpleGraph<T> {
+    fn to_dot(&self) -> Result<String, ExportError> {
+        let mut s = String::from("digraph G {\n");
+
+        for (from, to) in self.edges() {
+            s.push_str(&format!("  {} -> {};\n", from, to));
+        }
+
+        s.push('}');
+        Ok(s)
+    }
+}
+
+impl<T> ToMermaid for DirectedSimpleGraph<T> {
+    fn to_mermaid(&self) -> Result<String, ExportError> {
+        let mut s = String::from("graph TD\n");
+
+        for (from, to) in self.edges() {
+            s.push_str(&format!("  {} --> {}\n", from, to));
+        }
+
+        Ok(s)
+    }
+}
+
+impl<T> ToPlantUml for DirectedSimpleGraph<T> {
+    fn to_plantuml(&self) -> Result<String, ExportError> {
+        let mut s = String::from("@startuml\n");
+
+        for (from, to) in self.edges() {
+            s.push_str(&format!("  {} --> {}\n", from, to));
+        }
+
+        s.push_str("@enduml");
+        Ok(s)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
