@@ -151,10 +151,10 @@ mod tests {
         let n2 = graph.base.add_node("C");
         let n3 = graph.base.add_node("D");
 
-        graph.add_weighted_edge(n0, n1, 1);
-        graph.add_weighted_edge(n1, n2, 2);
-        graph.add_weighted_edge(n0, n2, 4);
-        graph.add_weighted_edge(n2, n3, 1);
+        graph.add_edge(n0, n1, 1);
+        graph.add_edge(n1, n2, 2);
+        graph.add_edge(n0, n2, 4);
+        graph.add_edge(n2, n3, 1);
 
         (graph, vec![n0, n1, n2, n3])
     }
@@ -166,10 +166,10 @@ mod tests {
         let n2 = graph.base.add_node("C");
         let n3 = graph.base.add_node("D");
 
-        graph.add_weighted_edge(n0, n1, OrderedFloat(1.0));
-        graph.add_weighted_edge(n1, n2, OrderedFloat(2.0));
-        graph.add_weighted_edge(n0, n2, OrderedFloat(4.0));
-        graph.add_weighted_edge(n2, n3, OrderedFloat(1.0));
+        graph.add_edge(n0, n1, OrderedFloat(1.0));
+        graph.add_edge(n1, n2, OrderedFloat(2.0));
+        graph.add_edge(n0, n2, OrderedFloat(4.0));
+        graph.add_edge(n2, n3, OrderedFloat(1.0));
 
         (graph, vec![n0, n1, n2, n3])
     }
@@ -187,10 +187,10 @@ struct Point {
         let n2 = graph.base.add_node(Point { x: 2.0, y: 2.0 });
         let n3 = graph.base.add_node(Point { x: 3.0, y: 3.0 });
 
-        graph.add_weighted_edge(n0, n1, 1.5.into());
-        graph.add_weighted_edge(n1, n2, 2.5.into());
-        graph.add_weighted_edge(n0, n2, 5.0.into());
-        graph.add_weighted_edge(n2, n3, 1.0.into());
+        graph.add_edge(n0, n1, 1.5.into());
+        graph.add_edge(n1, n2, 2.5.into());
+        graph.add_edge(n0, n2, 5.0.into());
+        graph.add_edge(n2, n3, 1.0.into());
 
         (graph, vec![n0, n1, n2, n3])
     }
