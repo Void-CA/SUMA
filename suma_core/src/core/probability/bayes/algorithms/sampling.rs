@@ -3,8 +3,8 @@ use crate::core::probability::bayes::BayesianNetwork;
 use std::collections::HashMap;
 use crate::core::data_structures::graphs::{Directed, topological_sort};
 
-pub fn rejection_sampling<G>(
-    network: &BayesianNetwork<G>,
+pub fn rejection_sampling(
+    network: &BayesianNetwork,
     evidence: &HashMap<usize, State>,
     query: usize,
     n_samples: usize,
@@ -59,7 +59,7 @@ use super::*;
     #[test]
     fn test_rejection_sampling() {
         // Crear un DAG pequeño
-        let mut dag = DAG::<i32>::new();
+        let mut dag = DAG::<usize>::new();
         dag.add_node(0);
         dag.add_node(1);
         dag.add_edge(0, 1);
@@ -73,7 +73,12 @@ use super::*;
             table: vec![(vec![State::True], 0.8), (vec![State::False], 0.3)]
         }));
 
-        let network = BayesianNetwork::new(dag, cpts);
+        // Mapeo de nombres a IDs
+        let mut name_to_id = HashMap::new();
+        name_to_id.insert("A".to_string(), 0);
+        name_to_id.insert("B".to_string(), 1);
+
+        let network = BayesianNetwork::from_parts(dag, cpts, name_to_id);
 
         let evidence = HashMap::new();
         let query = 1; // Nodo B
