@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use num_traits::{Num};
-use crate::core::data_structures::graphs::{BaseGraph, DirectedSimpleGraph, GraphBase};
+use crate::core::data_structures::graphs::{BaseGraph, Directed, GraphBase};
 use crate::core::data_structures::graphs::traits::WeightedGraph;
 use crate::core::data_structures::graphs::weighted::Weight;
 use crate::core::formatting::error::ExportError;

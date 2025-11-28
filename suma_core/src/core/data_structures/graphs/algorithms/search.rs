@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::core::data_structures::graphs::GraphBase;
 
 pub fn bfs<G>(
@@ -121,6 +122,26 @@ where
     None
 }
 
+pub fn dfs_cycle<G>(graph: &G, start: G::NodeId, current: G::NodeId, visited: &mut HashSet<G::NodeId>) -> bool
+where
+    G: GraphBase,
+    G::NodeId: Clone + Eq + std::hash::Hash,
+{
+    if visited.contains(&current) { return false; }
+
+    visited.insert(current.clone());
+
+    for neighbor in graph.neighbors(current.clone()) {
+        if neighbor == start { return true; } // ciclo detectado
+        if dfs_cycle(graph, start.clone(), neighbor.clone(), visited) {
+            return true;
+        }
+    }
+
+    visited.remove(&current);
+    false
+}
+
 pub fn dfs_traversal<G>(
     graph: &G,
     start: G::NodeId,
@@ -204,6 +225,16 @@ mod tests {
         let expected_path = vec![nodes_id[0], nodes_id[2], nodes_id[4]];
 
         assert_eq!(path, expected_path);
+    }
+
+    #[test]
+    fn test_dfs_cycle() {
+        let (graph, nodes_id) = setup_graph();
+
+        let mut visited = HashSet::new();
+        let has_cycle = dfs_cycle(&graph, nodes_id[0], nodes_id[0], &mut visited);
+
+        assert_eq!(has_cycle, true);
     }
 }
 

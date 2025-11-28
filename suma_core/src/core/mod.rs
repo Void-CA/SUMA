@@ -12,6 +12,7 @@ pub mod decision_theory;
 pub mod formatting;
 
 pub mod error;
+pub mod probability;
 
 // Re-export para fácil acceso
 pub use boolean_algebra::{BooleanExpr, TruthTable};

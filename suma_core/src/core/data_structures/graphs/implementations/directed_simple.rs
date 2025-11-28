@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 use crate::core::data_structures::graphs::{
     implementations::base_graph::BaseGraph,
-    traits::{GraphBase, DirectedGraph}
+    traits::{GraphBase, Directed}
 };
 use crate::core::formatting::error::ExportError;
 use crate::core::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 
-pub struct DirectedSimpleGraph<T> {
+pub struct DirectedGraph<T> {
     pub base: BaseGraph<T, ()>,
     pub adjacency: HashMap<usize, Vec<usize>>,
 }
 
-impl<T> DirectedSimpleGraph<T> {
+impl<T> DirectedGraph<T> {
     pub fn new() -> Self {
         Self {
             base: BaseGraph::new(),
@@ -23,9 +23,27 @@ impl<T> DirectedSimpleGraph<T> {
         self.base.add_edge(from, to, ());
         self.adjacency.entry(from).or_insert_with(Vec::new).push(to);
     }
+
+    pub fn has_cycle(&self) -> bool {
+        use crate::core::data_structures::graphs::algorithms::search::dfs_cycle;
+        use std::collections::HashSet;
+
+        for &node in self.nodes().iter() {
+            let mut visited = HashSet::new();
+            if dfs_cycle(self, node, node, &mut visited) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn remove_node(&mut self, id: usize) -> Option<T> {
+        // Remove edges associated with the node
+        self.base.remove_node(id)
+    }
 }
 
-impl<T> GraphBase for DirectedSimpleGraph<T> {
+impl<T> GraphBase for DirectedGraph<T> {
     type NodeId = usize;
     type NodeData = T;
     type EdgeData = ();
@@ -51,7 +69,7 @@ impl<T> GraphBase for DirectedSimpleGraph<T> {
     }
 }
 
-impl<T> DirectedGraph for DirectedSimpleGraph<T> {
+impl<T> Directed for DirectedGraph<T> {
     fn predecessors(&self, node: usize) -> Vec<usize> {
         self.adjacency
             .iter()
@@ -70,7 +88,7 @@ impl<T> DirectedGraph for DirectedSimpleGraph<T> {
     }
 }
 
-impl<T> ToDot for DirectedSimpleGraph<T> {
+impl<T> ToDot for DirectedGraph<T> {
     fn to_dot(&self) -> Result<String, ExportError> {
         let mut s = String::from("digraph G {\n");
 
@@ -83,7 +101,7 @@ impl<T> ToDot for DirectedSimpleGraph<T> {
     }
 }
 
-impl<T> ToMermaid for DirectedSimpleGraph<T> {
+impl<T> ToMermaid for DirectedGraph<T> {
     fn to_mermaid(&self) -> Result<String, ExportError> {
         let mut s = String::from("graph TD\n");
 
@@ -95,7 +113,7 @@ impl<T> ToMermaid for DirectedSimpleGraph<T> {
     }
 }
 
-impl<T> ToPlantUml for DirectedSimpleGraph<T> {
+impl<T> ToPlantUml for DirectedGraph<T> {
     fn to_plantuml(&self) -> Result<String, ExportError> {
         let mut s = String::from("@startuml\n");
 
@@ -115,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_new_graph() {
-        let graph: DirectedSimpleGraph<i32> = DirectedSimpleGraph::new();
+        let graph: DirectedGraph<i32> = DirectedGraph::new();
         assert!(graph.base.nodes.is_empty());
         assert!(graph.base.edges.is_empty());
         assert!(graph.adjacency.is_empty());
@@ -124,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_add_node() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node_id = graph.base.add_node("test_data");
 
         assert_eq!(node_id, 0);
@@ -135,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_add_directed_edge() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node("node1");
         let node2 = graph.base.add_node("node2");
 
@@ -151,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_nodes_method() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node(10);
         let node2 = graph.base.add_node(20);
 
@@ -164,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_edges_method() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node(1);
         let node2 = graph.base.add_node(2);
         let node3 = graph.base.add_node(3);
@@ -181,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_node_data() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node_id = graph.base.add_node("test_data");
 
         assert_eq!(graph.node_data(node_id), Some(&"test_data"));
@@ -190,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_edge_data() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node(1);
         let node2 = graph.base.add_node(2);
 
@@ -203,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_successors() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node(1);
         let node2 = graph.base.add_node(2);
         let node3 = graph.base.add_node(3);
@@ -220,7 +238,7 @@ mod tests {
 
     #[test]
     fn test_predecessors() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node(1);
         let node2 = graph.base.add_node(2);
         let node3 = graph.base.add_node(3);
@@ -237,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_multiple_edges_from_same_node() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node(1);
         let node2 = graph.base.add_node(2);
         let node3 = graph.base.add_node(3);
@@ -251,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_self_loop() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let node1 = graph.base.add_node(1);
 
         graph.add_directed_edge(node1, node1); // Self-loop
@@ -263,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_complex_graph_structure() {
-        let mut graph = DirectedSimpleGraph::new();
+        let mut graph = DirectedGraph::new();
         let nodes: Vec<usize> = (0..5).map(|i| graph.base.add_node(i)).collect();
 
         // Crear una estructura más compleja
@@ -288,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_edge_cases() {
-        let mut graph: DirectedSimpleGraph<&str> = DirectedSimpleGraph::new();
+        let mut graph: DirectedGraph<&str> = DirectedGraph::new();
 
         // Agregar nodos y luego aristas válidas
         let existing_node = graph.base.add_node("exists");

@@ -1,6 +1,6 @@
 use super::graph_base::GraphBase;
 
-pub trait DirectedGraph: GraphBase {
+pub trait Directed: GraphBase {
     fn predecessors(&self, node: Self::NodeId) -> Vec<Self::NodeId>;
     fn successors(&self, node: Self::NodeId) -> Vec<Self::NodeId>;
 
