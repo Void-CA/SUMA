@@ -7,7 +7,7 @@ use crate::core::formatting::error::ExportError;
 use crate::core::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 
 pub struct DirectedGraph<T> {
-    pub base: BaseGraph<T, ()>,
+    base: BaseGraph<T, ()>,
     pub adjacency: HashMap<usize, Vec<usize>>,
 }
 
@@ -37,9 +37,27 @@ impl<T> DirectedGraph<T> {
         false
     }
 
+    pub fn add_node(&mut self, data: T) -> usize {
+        self.base.add_node(data)
+    }
+
     pub fn remove_node(&mut self, id: usize) -> Option<T> {
         // Remove edges associated with the node
         self.base.remove_node(id)
+    }
+
+    pub fn remove_edge(&mut self, from: usize, to: usize) -> Option<()> {
+        // Remove edge from base graph
+        let removed = self.base.edges.remove(&(from, to));
+        if removed.is_some() {
+            // Also update adjacency list
+            if let Some(neighbors) = self.adjacency.get_mut(&from) {
+                neighbors.retain(|&x| x != to);
+            }
+            Some(())
+        } else {
+            None
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 pub trait GraphBase {
-    type NodeId: Clone + Eq + Hash;
+    type NodeId: Clone + Eq + Hash + Copy;
     type NodeData;
     type EdgeData;
 
