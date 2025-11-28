@@ -1,6 +1,7 @@
 
 use crate::core::data_structures::graphs::traits::graph_base::GraphBase;
 use std::hash::Hash;
+use crate::core::data_structures::graphs::Directed;
 use super::{DirectedGraph};
 
 
@@ -8,7 +9,7 @@ pub struct DAG<T> {
     graph : DirectedGraph<T>,
 }
 
-impl<T: Eq + Hash + Clone> DAG<T> {
+impl<T> DAG<T> {
     pub fn new() -> Self {
         Self {
             graph: DirectedGraph::new(),
@@ -17,6 +18,10 @@ impl<T: Eq + Hash + Clone> DAG<T> {
 
     pub fn add_node(&mut self, value: T) -> usize {
         self.graph.add_node(value)
+    }
+
+    pub fn remove_node(&mut self, node: usize) -> Option<T> {
+        self.graph.remove_node(node)
     }
 
     pub fn add_edge(&mut self, from: usize, to: usize) -> Result<(), &'static str> {
@@ -30,21 +35,39 @@ impl<T: Eq + Hash + Clone> DAG<T> {
         Ok(())
     }
 
-    pub fn nodes(&self) -> Vec<usize> {
+}
+
+impl<T> GraphBase for DAG<T> {
+    type NodeId = usize;
+    type NodeData = T;
+    type EdgeData = ();
+
+    fn nodes(&self) -> Vec<Self::NodeId> {
         self.graph.nodes()
     }
 
-    pub fn edges(&self) -> Vec<(usize, usize)> {
+    fn edges(&self) -> Vec<(Self::NodeId, Self::NodeId)> {
         self.graph.edges()
     }
 
-    pub fn node_data(&self, id: usize) -> Option<&T> {
+    fn node_data(&self, id: Self::NodeId) -> Option<&Self::NodeData> {
         self.graph.node_data(id)
     }
 
-    pub fn edge_data(&self, from: usize, to: usize) -> Option<&()> {
+    fn edge_data(&self, from: Self::NodeId, to: Self::NodeId) -> Option<&Self::EdgeData> {
         self.graph.edge_data(from, to)
     }
 
+    fn neighbors(&self, node: Self::NodeId) -> Vec<Self::NodeId> {
+        self.graph.neighbors(node)
+    }
+}
 
+impl<T> Directed for DAG<T> {
+    fn predecessors(&self, node: Self::NodeId) -> Vec<Self::NodeId> {
+        self.graph.predecessors(node)
+    }
+    fn successors(&self, node: Self::NodeId) -> Vec<Self::NodeId> {
+        self.graph.successors(node)
+    }
 }

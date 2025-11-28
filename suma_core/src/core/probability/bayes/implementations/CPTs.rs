@@ -1,27 +1,26 @@
-use crate::core::probability::bayes::models::BN_base::CPTBase;
+use crate::core::probability::bayes::BN_base::{State, CPTBase};
 
 pub struct BinaryCPT {
-    pub table: Vec<(Vec<bool>, f64)>,
+    pub table: Vec<(Vec<State>, f64)>, // padres + P(valor=true)
 }
 
 impl CPTBase for BinaryCPT {
-    fn get_probability(&self, parent_values: &[&str], value: &str) -> Option<f64> {
-        let bool_values: Vec<bool> = parent_values.iter().map(|&v| v == "true").collect();
-        let val_bool = value == "true";
+    fn get_probability(&self, parent_values: &[State], value: State) -> Option<f64> {
         self.table
             .iter()
-            .find(|(parents, _)| *parents == bool_values)
-            .map(|(_, p)| if val_bool { *p } else { 1.0 - *p })
+            .find(|(parents, _)| parents == parent_values)
+            .map(|(_, p)| match value {
+                State::True => *p,
+                State::False => 1.0 - *p,
+                State::Value(_) => todo!(),
+            })
     }
 
-    fn possible_values(&self) -> Vec<String> {
-        vec!["true".into(), "false".into()]
+    fn possible_values(&self) -> Vec<State> {
+        vec![State::True, State::False]
     }
 
-    fn parent_combinations(&self) -> Vec<Vec<String>> {
-        self.table
-            .iter()
-            .map(|(parents, _)| parents.iter().map(|b| if *b { "true".into() } else { "false".into() }).collect())
-            .collect()
+    fn parent_combinations(&self) -> Vec<Vec<State>> {
+        self.table.iter().map(|(parents, _)| parents.clone()).collect()
     }
 }

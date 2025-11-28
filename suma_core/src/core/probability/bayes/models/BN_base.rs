@@ -16,12 +16,15 @@ pub trait BayesianNetworkBase {
 }
 
 pub trait CPTBase {
-    ///
-    fn get_probability(&self, parent_values: &[&str], value: &str) -> Option<f64>;
+    fn get_probability(&self, parent_values: &[State], value: State) -> Option<f64>;
+    fn possible_values(&self) -> Vec<State>;
+    fn parent_combinations(&self) -> Vec<Vec<State>>;
+}
 
-    ///
-    fn possible_values(&self) -> Vec<String>;
 
-    ///
-    fn parent_combinations(&self) -> Vec<Vec<String>>;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum State {
+    True,
+    False,
+    Value(String), // para otros casos categóricos
 }
