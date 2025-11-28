@@ -1,5 +1,8 @@
+use crate::core::probability::bayes::BinaryCPT;
+use crate::core::probability::bayes::DiscreteCPT;
 use std::hash::Hash;
 use std::collections::HashMap;
+use rust_xlsxwriter::TableFunction;
 use crate::core::data_structures::dag::DAG;
 use crate::core::data_structures::graphs::{Directed, GraphBase};
 use crate::core::probability::bayes::models::BN_base::*;
@@ -128,6 +131,10 @@ impl BayesianNetwork {
         self.dag.add_edge(*parent, *child);
     }
 
+    pub fn add_edge_by_id(&mut self, parent: usize, child: usize) {
+        self.dag.add_edge(parent, child);
+    }
+
     pub fn get_id_from_name(&self, name: &str) -> Option<usize> {
         self.name_to_id.get(name).copied()
     }
@@ -136,26 +143,146 @@ impl BayesianNetwork {
         self.id_to_name.get(&node_id)
     }
 
+    fn next_node_id(&self) -> usize {
+        self.cpts.len()
+    }
+
     pub fn add_node(
         &mut self,
         name: &str,
         cpt: Box<dyn CPTBase>
     ) -> Result<usize, &'static str> {
-
         if self.name_to_id.contains_key(name) {
             return Err("Node with this name already exists.");
         }
 
-        // ID incremental seguro: 0,1,2,...
-        let node_id = self.cpts.len();
-
+        let node_id = self.next_node_id();
         self.dag.add_node(node_id);
         self.cpts.insert(node_id, cpt);
-
         self.name_to_id.insert(name.to_string(), node_id);
         self.id_to_name.insert(node_id, name.to_string());
 
         Ok(node_id)
+    }
+
+    pub fn add_binary_node(
+        &mut self,
+        name: &str,
+        parent_names: Vec<&str>,
+        prob_true_given_parents: Vec<(Vec<bool>, f64)>
+    ) -> Result<usize, String> {
+
+        let mut parent_ids = Vec::new();
+        for p_name in &parent_names {
+            match self.get_id_from_name(p_name) {
+                Some(id) => parent_ids.push(id),
+                None => return Err(format!("Parent node '{}' not found.", p_name)),
+            }
+        }
+
+        // 2. CONSTRUCCIÓN INTERNA DEL CPT: Usar BinaryCPT
+        let internal_table: Vec<(Vec<State>, f64)> = prob_true_given_parents
+            .into_iter()
+            .map(|(bool_parents, prob)| {
+                let state_parents: Vec<State> = bool_parents
+                    .into_iter()
+                    // Mapear bool a tu State binario (asumiendo que State tiene True/False)
+                    .map(|b| if b { State::True } else { State::False })
+                    .collect();
+                (state_parents, prob)
+            })
+            .collect();
+
+
+        let cpt = BinaryCPT { table: internal_table };
+
+        // 3. Agregar el nodo y su CPT
+        let node_id = self.add_node(name, Box::new(cpt)).map_err(|e| e.to_string())?;
+
+        // 4. Agregar las aristas
+        for p_id in parent_ids {
+            self.add_edge_by_id(p_id, node_id);
+        }
+
+        Ok(node_id)
+    }
+
+    pub fn add_discrete_node(
+        &mut self,
+        name: &str,
+        parent_names: Vec<&str>,
+        possible_values: Vec<&str>, // Valores que toma este nodo (ej: "A", "B", "C")
+        table_data: HashMap<Vec<&str>, HashMap<&str, f64>>
+    ) -> Result<usize, String> {
+
+        let mut parent_ids = Vec::new();
+        for p_name in &parent_names {
+            match self.get_id_from_name(p_name) {
+                Some(id) => parent_ids.push(id),
+                None => return Err(format!("Parent node '{}' not found.", p_name)),
+            }
+        }
+
+        let internal_possible_values: Vec<State> = possible_values
+            .into_iter()
+            .map(|s| State::from_str(s))
+            .collect();
+
+        // b) Construir la tabla interna: HashMap<Vec<State>, HashMap<State, f64>>
+        let mut internal_table = HashMap::new();
+
+        for (parent_vals_str, distribution_str) in table_data.iter() {
+            // Mapear combinación de padres (strings) a Vec<State>
+            let parent_vals_state: Vec<State> = parent_vals_str
+                .into_iter()
+                .map(|s| State::from_str(s))
+                .collect();
+
+            // Mapear la distribución (strings) a HashMap<State, f64>
+            let distribution_state: HashMap<State, f64> = distribution_str
+                .iter()
+                .map(|(val_str, prob)| (State::from_str(val_str), *prob))
+                .collect();
+
+            // Validación de Suma de Probabilidades (Crucial para CPTs)
+            let sum_prob: f64 = distribution_state.values().sum();
+            if (sum_prob - 1.0).abs() > 1e-6 { // Usar tolerancia para floats
+                return Err(format!("Probabilities for parent combination {:?} do not sum to 1.0 (Sum: {}).",
+                                   &parent_vals_str, &sum_prob));
+            }
+
+            internal_table.insert(parent_vals_state, distribution_state);
+        }
+
+        let cpt = DiscreteCPT {
+            node_possible_values: internal_possible_values,
+            table: internal_table
+        };
+
+        // 3. Agregar el nodo y su CPT
+        let node_id = self.add_node(name, Box::new(cpt)) // Usa el método base 'add_node'
+            .map_err(|e| e.to_string())?;
+
+        // 4. Agregar las aristas
+        for p_id in parent_ids {
+            self.add_edge_by_id(p_id, node_id);
+        }
+
+        Ok(node_id)
+    }
+
+
+
+    pub fn print_ids(&self) {
+        for (name, id) in &self.name_to_id {
+            println!("Node Name: {}, ID: {}", name, id);
+        }
+    }
+
+    pub fn make_states(&self, names: &[&str]) -> Vec<State> {
+        names.iter()
+            .map(|&n| State::Value(n.to_string()))
+            .collect()
     }
 
 }
@@ -170,51 +297,63 @@ mod tests {
     // 0: Rain
     // 1: Sprinkler
     // 2: WetGrass
-    fn setup() -> BayesianNetwork {
+    fn setup() -> Result<BayesianNetwork, String> {
         let mut bn = BayesianNetwork::new();
 
-        // CPT Rain:   P(Rain=True) = 0.2
-        let rain_cpt = BinaryCPT {
-            table: vec![(vec![], 0.2)],
-        };
-        bn.add_node("Rain", Box::new(rain_cpt));
+        // --- 1. Nodo Rain (Binario, sin padres) ---
+        // P(Rain=True) = 0.2
+        let rain_cpt_data: Vec<(Vec<bool>, f64)> = vec![
+            (vec![], 0.2),
+        ];
 
-        // CPT Sprinkler: depende de Rain
+        bn.add_binary_node(
+            "Rain",
+            vec![], // parent_names: No tiene padres
+            rain_cpt_data
+        )?;
+
+        // --- 2. Nodo Sprinkler (Binario, dependiente de Rain) ---
         // P(S=True | R=True) = 0.01
         // P(S=True | R=False) = 0.40
-        let sprinkler_cpt = BinaryCPT {
-            table: vec![
-                (vec![State::True],  0.01),
-                (vec![State::False], 0.40),
-            ],
-        };
-        bn.add_node("Sprinkler", Box::new(sprinkler_cpt));
+        let sprinkler_cpt_data: Vec<(Vec<bool>, f64)> = vec![
+            // Padres [Rain]
+            (vec![true], 0.01),  // P(S=True | R=True)
+            (vec![false], 0.40), // P(S=True | R=False)
+        ];
 
-        // CPT WetGrass: depende de Rain y Sprinkler
-        // P(W=True | R=True, S=True) = 0.99
-        // P(W=True | R=True, S=False) = 0.80
-        // P(W=True | R=False, S=True) = 0.90
-        // P(W=True | R=False, S=False) = 0.00
-        let wetgrass_cpt = BinaryCPT {
-            table: vec![
-                (vec![State::True,  State::True],  0.99),
-                (vec![State::True,  State::False], 0.80),
-                (vec![State::False, State::True],  0.90),
-                (vec![State::False, State::False], 0.00),
-            ],
-        };
-        bn.add_node("WetGrass", Box::new(wetgrass_cpt));
+        // Usamos add_binary_node
+        bn.add_binary_node(
+            "Sprinkler",
+            vec!["Rain"], // parent_names: Depende de Rain
+            sprinkler_cpt_data
+        )?;
 
-        // Conexiones del DAG
-        bn.add_edge("Rain", "WetGrass"); // Rain → WetGrass
-        bn.add_edge("Sprinkler", "WetGrass"); // Sprinkler → WetGrass
+        // --- 3. Nodo WetGrass (Binario, dependiente de Rain y Sprinkler) ---
+        // Los padres deben estar en el mismo orden que en la lista de `parent_names`: ["Rain", "Sprinkler"]
 
-        bn
+        // P(W=True | R, S)
+        let wetgrass_cpt_data: Vec<(Vec<bool>, f64)> = vec![
+            // Padres [Rain, Sprinkler]
+            (vec![true, true], 0.99),   // P(W=True | R=True, S=True)
+            (vec![true, false], 0.80),  // P(W=True | R=True, S=False)
+            (vec![false, true], 0.90),  // P(W=True | R=False, S=True)
+            (vec![false, false], 0.00), // P(W=True | R=False, S=False)
+        ];
+
+        // Usamos add_binary_node
+        bn.add_binary_node(
+            "WetGrass",
+            vec!["Rain", "Sprinkler"], // parent_names: Orden de los padres
+            wetgrass_cpt_data
+        )?;
+
+
+        Ok(bn)
     }
 
     #[test]
     fn test_topological_order() {
-        let bn = setup();
+        let bn = setup().unwrap();
         let order = bn.topological_order().unwrap();
 
         // Una topological válida puede ser:
@@ -224,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_rejection_sampling_rain() {
-        let bn = setup();
+        let bn = setup().unwrap();
 
         // Queremos P(Rain=True)
         let query = 0;
@@ -239,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_rejection_sampling_wetgrass_given_rain() {
-        let bn = setup();
+        let bn = setup().unwrap();
 
         // Query: P(WetGrass=True | Rain=True)
         let mut evidence = HashMap::new();

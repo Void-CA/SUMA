@@ -2,6 +2,8 @@
 use crate::core::data_structures::graphs::traits::graph_base::GraphBase;
 use std::hash::Hash;
 use crate::core::data_structures::graphs::Directed;
+use crate::core::formatting::error::ExportError;
+use crate::core::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 use super::{DirectedGraph};
 
 
@@ -63,11 +65,38 @@ impl<T> GraphBase for DAG<T> {
     }
 }
 
+
+
 impl<T> Directed for DAG<T> {
     fn predecessors(&self, node: Self::NodeId) -> Vec<Self::NodeId> {
         self.graph.predecessors(node)
     }
     fn successors(&self, node: Self::NodeId) -> Vec<Self::NodeId> {
         self.graph.successors(node)
+    }
+}
+
+impl<T> ToMermaid for DAG<T> {
+    fn to_mermaid(&self) -> Result<String, ExportError> {
+        self.graph.to_mermaid()
+    }
+}
+
+
+impl<T> ToPlantUml for DAG<T> {
+    fn to_plantuml(&self) -> Result<String, ExportError> {
+        self.graph.to_plantuml()
+    }
+}
+
+impl<T> ToDot for DAG<T> {
+    fn to_dot(&self) -> Result<String, ExportError> {
+        self.graph.to_dot()
+    }
+}
+
+impl<T> DAG<T> where T: Hash + Eq {
+    pub fn has_cycle(&self) -> bool {
+        self.graph.has_cycle()
     }
 }

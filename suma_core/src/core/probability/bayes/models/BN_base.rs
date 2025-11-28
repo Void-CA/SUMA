@@ -28,3 +28,13 @@ pub enum State {
     False,
     Value(String), // para otros casos categóricos
 }
+
+impl State {
+    pub fn from_str(s: &str) -> State {
+        match s.to_lowercase().as_str() {
+            "true" => State::True,
+            "false" => State::False,
+            _ => State::Value(s.to_string()),
+        }
+    }
+}

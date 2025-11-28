@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::core::probability::bayes::BN_base::{State, CPTBase};
 
 pub struct BinaryCPT {
@@ -22,5 +23,28 @@ impl CPTBase for BinaryCPT {
 
     fn parent_combinations(&self) -> Vec<Vec<State>> {
         self.table.iter().map(|(parents, _)| parents.clone()).collect()
+    }
+}
+
+
+pub struct DiscreteCPT {
+    // 1. Almacenar los posibles valores del nodo directamente (más eficiente)
+    pub node_possible_values: Vec<State>,
+    pub table: HashMap<Vec<State>, HashMap<State, f64>>,
+}
+
+impl CPTBase for DiscreteCPT {
+    fn get_probability(&self, parent_values: &[State], value: State) -> Option<f64> {
+        self.table
+            .get(parent_values)
+            .and_then(|distribution| distribution.get(&value).copied())
+    }
+
+    fn possible_values(&self) -> Vec<State> {
+        self.node_possible_values.clone()
+    }
+
+    fn parent_combinations(&self) -> Vec<Vec<State>> {
+        self.table.keys().cloned().collect()
     }
 }
