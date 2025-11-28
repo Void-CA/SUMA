@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 
@@ -19,6 +20,8 @@ pub trait CPTBase {
     fn get_probability(&self, parent_values: &[State], value: State) -> Option<f64>;
     fn possible_values(&self) -> Vec<State>;
     fn parent_combinations(&self) -> Vec<Vec<State>>;
+    fn new_no_parents(possible_values: Vec<State>, probabilities: Vec<f64>) -> Self where Self: Sized;
+    fn new_with_parents(parent_combinations: Vec<Vec<State>>, probabilities: Vec<HashMap<State, f64>>, possible_values: Vec<State>) -> Self where Self: Sized;
 }
 
 
