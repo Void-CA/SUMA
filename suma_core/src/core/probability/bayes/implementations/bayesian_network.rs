@@ -116,6 +116,15 @@ impl BayesianNetwork {
             .collect()
     }
 
+    pub fn get_node_cpt_by_name(&self, node: &str) -> Option<&Box<dyn CPTBase>> {
+        let node_id = self.name_to_id.get(node)?;
+        self.cpts.get(node_id)
+    }
+
+    pub fn get_node_cpt_by_id(&self, node: &usize) -> Option<&Box<dyn CPTBase>> {
+        self.cpts.get(node)
+    }
+
     pub fn sample_node(&self, node: &usize, parent_values: &[State]) -> State {
         if let Some(cpt) = self.get_cpt(*node) {
 
