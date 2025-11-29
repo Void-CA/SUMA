@@ -123,7 +123,7 @@ pub fn likelihood_sampling( // Nombre mantenido por compatibilidad con WASM
 mod tests {
     use super::*;
     use crate::core::probability::bayes::BN_base::{CPTBase, State};
-    use crate::core::probability::bayes::implementations::CPTs::BinaryCPT;
+    use crate::core::probability::bayes::implementations::CPTs::{BinaryCPT, DiscreteCPT, CPT};
     use crate::core::data_structures::dag::DAG;
     use std::collections::HashMap;
 
@@ -135,18 +135,17 @@ mod tests {
         dag.add_node(1);
         dag.add_edge(0, 1).unwrap();
 
-        // Crear CPTs - versión corregida
-        let mut cpts: HashMap<usize, Box<dyn CPTBase>> = HashMap::new();
+        // Crear CPTs - VERSIÓN CORREGIDA para usar CPT enum
+        let mut cpts: HashMap<usize, CPT> = HashMap::new();
 
         // Nodo 0: A sin padres, P(A=True) = 0.6
-        // Para BinaryCPT con no padres, solo necesitamos P(True), P(False) se infiere como 1 - P(True)
-        cpts.insert(0, Box::new(BinaryCPT::new_no_parents(
-            vec![State::True, State::False], // possible_values
+        cpts.insert(0, CPT::Binary(BinaryCPT::new_no_parents(
+            vec![State::True, State::False],
             vec![0.6] // SOLO una probabilidad para True
         )));
 
         // Nodo 1: B con padre A
-        cpts.insert(1, Box::new(BinaryCPT::new_with_parents(
+        cpts.insert(1, CPT::Binary(BinaryCPT::new_with_parents(
             vec![
                 vec![State::True],  // A=True
                 vec![State::False], // A=False
@@ -157,7 +156,7 @@ mod tests {
                 // Para A=False: P(B=True) = 0.3
                 HashMap::from([(State::True, 0.3)]),
             ],
-            vec![State::True, State::False] // possible_values
+            vec![State::True, State::False]
         )));
 
         // Mapeo de nombres a IDs
@@ -189,21 +188,21 @@ mod tests {
         dag.add_node(1);
         dag.add_edge(0, 1).unwrap();
 
-        let mut cpts: HashMap<usize, Box<dyn CPTBase>> = HashMap::new();
+        let mut cpts: HashMap<usize, CPT> = HashMap::new();
 
-        cpts.insert(0, Box::new(BinaryCPT::new_no_parents(
+        cpts.insert(0, CPT::Binary(BinaryCPT::new_no_parents(
             vec![State::True, State::False],
-            vec![0.6] // Solo P(A=True)
+            vec![0.6]
         )));
 
-        cpts.insert(1, Box::new(BinaryCPT::new_with_parents(
+        cpts.insert(1, CPT::Binary(BinaryCPT::new_with_parents(
             vec![
                 vec![State::True],
                 vec![State::False],
             ],
             vec![
-                HashMap::from([(State::True, 0.8)]), // P(B=True|A=True)
-                HashMap::from([(State::True, 0.3)]), // P(B=True|A=False)
+                HashMap::from([(State::True, 0.8)]),
+                HashMap::from([(State::True, 0.3)]),
             ],
             vec![State::True, State::False]
         )));
@@ -238,21 +237,21 @@ mod tests {
         dag.add_node(1);
         dag.add_edge(0, 1).unwrap();
 
-        let mut cpts: HashMap<usize, Box<dyn CPTBase>> = HashMap::new();
+        let mut cpts: HashMap<usize, CPT> = HashMap::new();
 
-        cpts.insert(0, Box::new(BinaryCPT::new_no_parents(
+        cpts.insert(0, CPT::Binary(BinaryCPT::new_no_parents(
             vec![State::True, State::False],
-            vec![0.6] // Solo P(A=True)
+            vec![0.6]
         )));
 
-        cpts.insert(1, Box::new(BinaryCPT::new_with_parents(
+        cpts.insert(1, CPT::Binary(BinaryCPT::new_with_parents(
             vec![
                 vec![State::True],
                 vec![State::False],
             ],
             vec![
-                HashMap::from([(State::True, 0.8)]), // P(B=True|A=True)
-                HashMap::from([(State::True, 0.3)]), // P(B=True|A=False)
+                HashMap::from([(State::True, 0.8)]),
+                HashMap::from([(State::True, 0.3)]),
             ],
             vec![State::True, State::False]
         )));
@@ -291,36 +290,36 @@ mod tests {
         dag.add_edge(0, 1).unwrap();
         dag.add_edge(1, 2).unwrap();
 
-        let mut cpts: HashMap<usize, Box<dyn CPTBase>> = HashMap::new();
+        let mut cpts: HashMap<usize, CPT> = HashMap::new();
 
         // A: P(A=True)=0.7
-        cpts.insert(0, Box::new(BinaryCPT::new_no_parents(
+        cpts.insert(0, CPT::Binary(BinaryCPT::new_no_parents(
             vec![State::True, State::False],
-            vec![0.7] // Solo P(A=True)
+            vec![0.7]
         )));
 
         // B: P(B=True|A=True)=0.9, P(B=True|A=False)=0.2
-        cpts.insert(1, Box::new(BinaryCPT::new_with_parents(
+        cpts.insert(1, CPT::Binary(BinaryCPT::new_with_parents(
             vec![
                 vec![State::True],
                 vec![State::False],
             ],
             vec![
-                HashMap::from([(State::True, 0.9)]), // P(B=True|A=True)
-                HashMap::from([(State::True, 0.2)]), // P(B=True|A=False)
+                HashMap::from([(State::True, 0.9)]),
+                HashMap::from([(State::True, 0.2)]),
             ],
             vec![State::True, State::False]
         )));
 
         // C: P(C=True|B=True)=0.95, P(C=True|B=False)=0.1
-        cpts.insert(2, Box::new(BinaryCPT::new_with_parents(
+        cpts.insert(2, CPT::Binary(BinaryCPT::new_with_parents(
             vec![
                 vec![State::True],
                 vec![State::False],
             ],
             vec![
-                HashMap::from([(State::True, 0.95)]), // P(C=True|B=True)
-                HashMap::from([(State::True, 0.1)]),  // P(C=True|B=False)
+                HashMap::from([(State::True, 0.95)]),
+                HashMap::from([(State::True, 0.1)]),
             ],
             vec![State::True, State::False]
         )));
@@ -349,5 +348,83 @@ mod tests {
         let expected_prob = 0.95 * (0.9 * 0.7 + 0.2 * 0.3) + 0.1 * (0.1 * 0.7 + 0.8 * 0.3);
         assert!((prob_c_true - expected_prob).abs() < 0.05,
                 "Probabilidad estimada: {}, esperada: ~{}", prob_c_true, expected_prob);
+    }
+
+    // Test adicional para nodos discretos
+    #[test]
+    fn test_discrete_node_sampling() {
+        let mut dag = DAG::<usize>::new();
+        dag.add_node(0);
+        dag.add_node(1);
+        dag.add_edge(0, 1).unwrap();
+
+        let mut cpts: HashMap<usize, CPT> = HashMap::new();
+
+        // Nodo padre discreto con 3 estados
+        cpts.insert(0, CPT::Discrete(DiscreteCPT::new_no_parents(
+            vec![
+                State::Value("Alto".to_string()),
+                State::Value("Medio".to_string()),
+                State::Value("Bajo".to_string())
+            ],
+            vec![0.3, 0.5, 0.2] // Probabilidades para Alto, Medio, Bajo
+        )));
+
+        // Nodo hijo binario que depende del padre discreto
+        cpts.insert(1, CPT::Binary(BinaryCPT::new_with_parents(
+            vec![
+                vec![State::Value("Alto".to_string())],
+                vec![State::Value("Medio".to_string())],
+                vec![State::Value("Bajo".to_string())],
+            ],
+            vec![
+                HashMap::from([(State::True, 0.9)]),  // P(True|Alto)=0.9
+                HashMap::from([(State::True, 0.6)]),  // P(True|Medio)=0.6
+                HashMap::from([(State::True, 0.2)]),  // P(True|Bajo)=0.2
+            ],
+            vec![State::True, State::False]
+        )));
+
+        let mut name_to_id = HashMap::new();
+        name_to_id.insert("Padre".to_string(), 0);
+        name_to_id.insert("Hijo".to_string(), 1);
+
+        let network = BayesianNetwork::from_parts(dag, cpts, name_to_id);
+
+        let evidence = HashMap::new();
+        let query = 1; // Nodo Hijo
+        let n_samples = 10000;
+
+        let distribution = likelihood_sampling(&network, &evidence, query, n_samples);
+
+        let prob_hijo_true = *distribution.get(&State::True).unwrap_or(&0.0);
+        println!("P(Hijo=True) ≈ {}", prob_hijo_true);
+
+        // Probabilidad exacta:
+        // P(Hijo=True) = 0.9*0.3 + 0.6*0.5 + 0.2*0.2 = 0.27 + 0.3 + 0.04 = 0.61
+        assert!((prob_hijo_true - 0.61).abs() < 0.05,
+                "Probabilidad estimada: {}, esperada: ~0.61", prob_hijo_true);
+    }
+
+    // Test para verificar que la serialización funciona
+    #[test]
+    fn test_cpt_serialization() {
+        let binary_cpt = CPT::Binary(BinaryCPT::new_no_parents(
+            vec![State::True, State::False],
+            vec![0.7]
+        ));
+
+        let discrete_cpt = CPT::Discrete(DiscreteCPT::new_no_parents(
+            vec![
+                State::Value("A".to_string()),
+                State::Value("B".to_string()),
+                State::Value("C".to_string())
+            ],
+            vec![0.4, 0.35, 0.25]
+        ));
+
+        // Verificar que los CPTs implementan el trait correctamente
+        assert!(binary_cpt.get_probability(&[], State::True).unwrap() - 0.7 < 1e-6);
+        assert!(discrete_cpt.get_probability(&[], State::Value("A".to_string())).unwrap() - 0.4 < 1e-6);
     }
 }

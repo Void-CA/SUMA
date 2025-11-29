@@ -1,5 +1,6 @@
-use crate::core::probability::bayes::BinaryCPT;
-use crate::core::probability::bayes::DiscreteCPT;
+
+use serde::Serialize;
+use crate::core::probability::bayes::{BinaryCPT, DiscreteCPT, CPT};
 use std::hash::Hash;
 use std::collections::HashMap;
 use rust_xlsxwriter::TableFunction;
@@ -9,7 +10,7 @@ use crate::core::probability::bayes::models::BN_base::*;
 
 pub struct BayesianNetwork {
     dag: DAG<usize>,
-    cpts: HashMap<usize, Box<dyn CPTBase>>,
+    cpts: HashMap<usize, CPT>,
     name_to_id: HashMap<String, usize>,
     id_to_name: HashMap<usize, String>,
 }
@@ -33,12 +34,14 @@ impl BayesianNetworkBase for BayesianNetwork {
     }
 
     fn get_cpt(&self, node: usize) -> Option<&(dyn CPTBase + 'static)> {
-        // Desreferencia el Box para obtener una referencia al Trait Object
-        self.cpts.get(&node).map(|b| b.as_ref())
+        self.cpts.get(&node).map(|cpt| cpt as &dyn CPTBase)
     }
 
     fn get_mut_cpt(&mut self, node: usize) -> Option<&mut (dyn CPTBase + 'static)> {
-        self.cpts.get_mut(&node).map(|b| b.as_mut())
+        self.cpts.get_mut(&node).map(|cpt| {
+            let cpt_ref: &mut CPT = cpt;
+            cpt_ref as &mut dyn CPTBase
+        })
     }
 
     fn remove_node(&mut self, node: usize) -> Option<()> {
@@ -63,7 +66,7 @@ impl BayesianNetwork {
 
     pub fn from_parts(
         dag: DAG<usize>,
-        cpts: HashMap<usize, Box<dyn CPTBase>>,
+        cpts: HashMap<usize, CPT>,
         name_to_id: HashMap<String, usize>,
     ) -> Self {
 
@@ -116,12 +119,12 @@ impl BayesianNetwork {
             .collect()
     }
 
-    pub fn get_node_cpt_by_name(&self, node: &str) -> Option<&Box<dyn CPTBase>> {
+    pub fn get_node_cpt_by_name(&self, node: &str) -> Option<&CPT> {
         let node_id = self.name_to_id.get(node)?;
         self.cpts.get(node_id)
     }
 
-    pub fn get_node_cpt_by_id(&self, node: &usize) -> Option<&Box<dyn CPTBase>> {
+    pub fn get_node_cpt_by_id(&self, node: &usize) -> Option<&CPT> {
         self.cpts.get(node)
     }
 
@@ -139,7 +142,7 @@ impl BayesianNetwork {
         }
     }
 
-    fn add_node_dag(&mut self, node: usize, cpt: Box<dyn CPTBase>) {
+    fn add_node_dag(&mut self, node: usize, cpt: CPT) {
         self.dag.add_node(node);
         self.cpts.insert(node, cpt);
     }
@@ -179,7 +182,7 @@ impl BayesianNetwork {
     pub fn add_node(
         &mut self,
         name: &str,
-        cpt: Box<dyn CPTBase>
+        cpt: CPT
     ) -> Result<usize, &'static str> {
         if self.name_to_id.contains_key(name) {
             return Err("Node with this name already exists.");
@@ -223,10 +226,10 @@ impl BayesianNetwork {
             .collect();
 
 
-        let cpt = BinaryCPT { table: internal_table };
+        let cpt = CPT::Binary(BinaryCPT { table: internal_table });
 
         // 3. Agregar el nodo y su CPT
-        let node_id = self.add_node(name, Box::new(cpt)).map_err(|e| e.to_string())?;
+        let node_id = self.add_node(name, cpt).map_err(|e| e.to_string())?;
 
         // 4. Agregar las aristas
         for p_id in parent_ids {
@@ -283,13 +286,13 @@ impl BayesianNetwork {
             internal_table.insert(parent_vals_state, distribution_state);
         }
 
-        let cpt = DiscreteCPT {
+        let cpt = CPT::Discrete(DiscreteCPT {
             node_possible_values: internal_possible_values,
             table: internal_table
-        };
+        });
 
         // 3. Agregar el nodo y su CPT
-        let node_id = self.add_node(name, Box::new(cpt)) // Usa el método base 'add_node'
+        let node_id = self.add_node(name, cpt)
             .map_err(|e| e.to_string())?;
 
         // 4. Agregar las aristas
@@ -647,7 +650,6 @@ mod tests {
         assert!((total_prob - 1.0).abs() < 0.1); // Permitir cierto margen de error
     }
 
-    // Test de construcción desde partes
     #[test]
     fn test_from_parts() {
         let mut dag = DAG::new();
@@ -656,8 +658,8 @@ mod tests {
         dag.add_edge(0, 1);
 
         let mut cpts = HashMap::new();
-        cpts.insert(0, Box::new(BinaryCPT { table: vec![(vec![], 0.5)] }) as Box<dyn CPTBase>);
-        cpts.insert(1, Box::new(BinaryCPT { table: vec![(vec![State::True], 0.8), (vec![State::False], 0.2)] }));
+        cpts.insert(0, CPT::Binary(BinaryCPT { table: vec![(vec![], 0.5)] })); // Cambio
+        cpts.insert(1, CPT::Binary(BinaryCPT { table: vec![(vec![State::True], 0.8), (vec![State::False], 0.2)] })); // Cambio
 
         let mut name_to_id = HashMap::new();
         name_to_id.insert("A".to_string(), 0);
@@ -669,6 +671,20 @@ mod tests {
         assert_eq!(bn.get_edges().len(), 1);
         assert_eq!(bn.get_id_from_name("A"), Some(0));
         assert_eq!(bn.get_name_from_id(1).unwrap(), "B");
+    }
+
+    // Test del nuevo método serializable
+    #[test]
+    fn test_get_node_cpt_serializable() {
+        let bn = setup_simple_network().unwrap();
+        let cpt = bn.get_node_cpt_by_name("Rain");
+        assert!(cpt.is_some());
+
+        if let Some(CPT::Binary(binary_cpt)) = cpt {
+            assert_eq!(binary_cpt.table.len(), 1);
+        } else {
+            panic!("Expected Binary CPT");
+        }
     }
 
     // Test de print_ids (aunque es difícil testear output, al menos verificar que no panic)

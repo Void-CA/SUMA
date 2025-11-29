@@ -126,3 +126,59 @@ impl CPTBase for DiscreteCPT {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
+pub enum CPT {
+    Binary(BinaryCPT),
+    Discrete(DiscreteCPT),
+}
+
+impl CPTBase for CPT {
+    fn get_probability(&self, parent_values: &[State], value: State) -> Option<f64> {
+        match self {
+            CPT::Binary(binary) => binary.get_probability(parent_values, value),
+            CPT::Discrete(discrete) => discrete.get_probability(parent_values, value),
+        }
+    }
+
+    fn possible_values(&self) -> Vec<State> {
+        match self {
+            CPT::Binary(binary) => binary.possible_values(),
+            CPT::Discrete(discrete) => discrete.possible_values(),
+        }
+    }
+
+    fn parent_combinations(&self) -> Vec<Vec<State>> {
+        match self {
+            CPT::Binary(binary) => binary.parent_combinations(),
+            CPT::Discrete(discrete) => discrete.parent_combinations(),
+        }
+    }
+
+    fn sample(&self, parent_values: &[State]) -> Option<State> {
+        match self {
+            CPT::Binary(binary) => binary.sample(parent_values),
+            CPT::Discrete(discrete) => discrete.sample(parent_values),
+        }
+    }
+
+    fn new_no_parents(possible_values: Vec<State>, probabilities: Vec<f64>) -> Self {
+        if possible_values.len() == 2 && possible_values.contains(&State::True) && possible_values.contains(&State::False) {
+            CPT::Binary(BinaryCPT::new_no_parents(possible_values, probabilities))
+        } else {
+            CPT::Discrete(DiscreteCPT::new_no_parents(possible_values, probabilities))
+        }
+    }
+
+    fn new_with_parents(
+        parent_combinations: Vec<Vec<State>>,
+        probabilities: Vec<HashMap<State, f64>>,
+        possible_values: Vec<State>,
+    ) -> Self {
+        if possible_values.len() == 2 && possible_values.contains(&State::True) && possible_values.contains(&State::False) {
+            CPT::Binary(BinaryCPT::new_with_parents(parent_combinations, probabilities, possible_values))
+        } else {
+            CPT::Discrete(DiscreteCPT::new_with_parents(parent_combinations, probabilities, possible_values))
+        }
+    }
+}
