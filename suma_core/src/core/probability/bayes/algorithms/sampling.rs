@@ -62,6 +62,63 @@ pub fn rejection_sampling(
     distribution
 }
 
+pub fn likelihood_sampling( // Nombre mantenido por compatibilidad con WASM
+   network: &BayesianNetwork,
+   evidence: &HashMap<usize, State>,
+   query: usize,
+   n_samples: usize,
+) -> HashMap<State, f64>
+{
+    let topo_order = network.topological_order().unwrap();
+    let mut weighted_counts: HashMap<State, f64> = HashMap::new();
+    let mut total_weight = 0.0;
+
+    for _ in 0..n_samples {
+        let mut sample = HashMap::new();
+        let mut sample_weight = 1.0;
+
+        for node in &topo_order {
+            let parent_values = network.get_parent_values(node, &sample);
+            let node_value;
+
+            if let Some(evidence_val) = evidence.get(node) {
+                // 1. Si el nodo es evidencia, forzar el valor y calcular el peso.
+                node_value = evidence_val.clone();
+
+                // 2. Ponderar la muestra: W = W * P(Evidencia | Padres)
+                let prob_evidence = network.get_conditional_probability(*node, &parent_values, evidence_val.clone()).unwrap();
+                sample_weight *= prob_evidence;
+
+            } else {
+                // 3. Si no es evidencia, muestrear el valor normalmente.
+                node_value = network.sample_node(node, &parent_values);
+            }
+
+            // Insertar el valor del nodo (ya sea muestreado o forzado)
+            sample.insert(*node, node_value);
+        }
+
+        // Usar la muestra si tiene un peso positivo
+        if sample_weight > 0.0 {
+            let result_state = sample.get(&query).unwrap().clone();
+
+            // 4. Acumular el peso
+            *weighted_counts.entry(result_state).or_insert(0.0) += sample_weight;
+            total_weight += sample_weight;
+        }
+    }
+
+    // 5. Normalizar la distribución por el peso total
+    let mut distribution = HashMap::new();
+    if total_weight > 0.0 {
+        for (state, weight) in weighted_counts {
+            distribution.insert(state, weight / total_weight);
+        }
+    }
+
+    distribution
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,7 +128,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_rejection_sampling() {
+    fn test_likelihood_sampling() {
         // Crear un DAG pequeño
         let mut dag = DAG::<usize>::new();
         dag.add_node(0);
@@ -114,7 +171,7 @@ mod tests {
         let query = 1; // Nodo B
         let n_samples = 10000;
 
-        let distribution = rejection_sampling(&network, &evidence, query, n_samples);
+        let distribution = likelihood_sampling(&network, &evidence, query, n_samples);
 
         let prob_b_true = *distribution.get(&State::True).unwrap_or(&0.0);
         println!("P(B=True) ≈ {}", prob_b_true);
@@ -125,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rejection_sampling_with_evidence() {
+    fn test_likelihood_sampling_with_evidence() {
         // Test con evidencia: P(B=True|A=True)
         let mut dag = DAG::<usize>::new();
         dag.add_node(0);
@@ -164,7 +221,7 @@ mod tests {
         let query = 1; // Nodo B
         let n_samples = 10000;
 
-        let distribution = rejection_sampling(&network, &evidence, query, n_samples);
+        let distribution = likelihood_sampling(&network, &evidence, query, n_samples);
 
         let prob_b_true = *distribution.get(&State::True).unwrap_or(&0.0);
         println!("P(B=True|A=True) ≈ {}", prob_b_true);
@@ -174,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rejection_sampling_complex_evidence() {
+    fn test_likelihood_sampling_complex_evidence() {
         // Test con evidencia en el nodo hijo: P(A=True|B=True)
         let mut dag = DAG::<usize>::new();
         dag.add_node(0);
@@ -213,7 +270,7 @@ mod tests {
         let query = 0; // Nodo A
         let n_samples = 10000;
 
-        let distribution = rejection_sampling(&network, &evidence, query, n_samples);
+        let distribution = likelihood_sampling(&network, &evidence, query, n_samples);
 
         let prob_a_true = *distribution.get(&State::True).unwrap_or(&0.0);
         println!("P(A=True|B=True) ≈ {}", prob_a_true);
@@ -279,7 +336,7 @@ mod tests {
         let query = 2; // Nodo C
         let n_samples = 10000;
 
-        let distribution = rejection_sampling(&network, &evidence, query, n_samples);
+        let distribution = likelihood_sampling(&network, &evidence, query, n_samples);
 
         let prob_c_true = *distribution.get(&State::True).unwrap_or(&0.0);
         println!("P(C=True) ≈ {}", prob_c_true);

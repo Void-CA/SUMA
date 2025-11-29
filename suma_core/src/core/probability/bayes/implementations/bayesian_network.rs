@@ -94,6 +94,15 @@ impl BayesianNetwork {
         super::super::algorithms::sampling::rejection_sampling(self, evidence, query, n_samples)
     }
 
+    pub fn likelihood_weighting_sampling(
+        &self,
+        evidence: &HashMap<usize, State>,
+        query: usize,
+        n_samples: usize
+    ) -> HashMap<State, f64> {
+        super::super::algorithms::sampling::likelihood_sampling(self, evidence, query, n_samples)
+    }
+
     pub fn get_parent_values(
         &self,
         node: &usize,
@@ -141,6 +150,16 @@ impl BayesianNetwork {
 
     pub fn get_name_from_id(&self, node_id: usize) -> Option<&String> {
         self.id_to_name.get(&node_id)
+    }
+
+    pub fn get_conditional_probability(
+        &self,
+        node: usize,
+        parent_values: &[State],
+        value: State
+    ) -> Option<f64> {
+        self.get_cpt(node)
+            .and_then(|cpt| cpt.get_probability(parent_values, value))
     }
 
     fn next_node_id(&self) -> usize {
