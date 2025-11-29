@@ -109,7 +109,7 @@ impl BayesianNetwork {
     pub fn sample_node(&self, node: &usize, parent_values: &[State]) -> State {
         if let Some(cpt) = self.get_cpt(*node) {
             let prob_true = cpt.get_probability(parent_values, State::True).unwrap_or(0.0);
-            let rand_val: f64 = rand::random();
+            let rand_val: f64 = super::super::super::utils::random::random_f64();
             if rand_val < prob_true {
                 State::True
             } else {
@@ -292,73 +292,360 @@ mod tests {
     use super::*;
     use crate::core::probability::bayes::implementations::CPTs::BinaryCPT;
     use crate::core::probability::bayes::BN_base::State;
+    use std::collections::HashMap;
 
-    // Construye una red bayesiana simple:
-    // 0: Rain
-    // 1: Sprinkler
-    // 2: WetGrass
-    fn setup() -> Result<BayesianNetwork, String> {
+    // Construye una red bayesiana simple para tests
+    fn setup_simple_network() -> Result<BayesianNetwork, String> {
         let mut bn = BayesianNetwork::new();
 
-        // --- 1. Nodo Rain (Binario, sin padres) ---
-        // P(Rain=True) = 0.2
-        let rain_cpt_data: Vec<(Vec<bool>, f64)> = vec![
-            (vec![], 0.2),
-        ];
-
+        // Nodo Rain (sin padres)
         bn.add_binary_node(
             "Rain",
-            vec![], // parent_names: No tiene padres
-            rain_cpt_data
+            vec![],
+            vec![(vec![], 0.2)]
         )?;
 
-        // --- 2. Nodo Sprinkler (Binario, dependiente de Rain) ---
-        // P(S=True | R=True) = 0.01
-        // P(S=True | R=False) = 0.40
-        let sprinkler_cpt_data: Vec<(Vec<bool>, f64)> = vec![
-            // Padres [Rain]
-            (vec![true], 0.01),  // P(S=True | R=True)
-            (vec![false], 0.40), // P(S=True | R=False)
-        ];
-
-        // Usamos add_binary_node
+        // Nodo Sprinkler (depende de Rain)
         bn.add_binary_node(
             "Sprinkler",
-            vec!["Rain"], // parent_names: Depende de Rain
-            sprinkler_cpt_data
+            vec!["Rain"],
+            vec![
+                (vec![true], 0.01),
+                (vec![false], 0.40),
+            ]
         )?;
 
-        // --- 3. Nodo WetGrass (Binario, dependiente de Rain y Sprinkler) ---
-        // Los padres deben estar en el mismo orden que en la lista de `parent_names`: ["Rain", "Sprinkler"]
-
-        // P(W=True | R, S)
-        let wetgrass_cpt_data: Vec<(Vec<bool>, f64)> = vec![
-            // Padres [Rain, Sprinkler]
-            (vec![true, true], 0.99),   // P(W=True | R=True, S=True)
-            (vec![true, false], 0.80),  // P(W=True | R=True, S=False)
-            (vec![false, true], 0.90),  // P(W=True | R=False, S=True)
-            (vec![false, false], 0.00), // P(W=True | R=False, S=False)
-        ];
-
-        // Usamos add_binary_node
+        // Nodo WetGrass (depende de Rain y Sprinkler)
         bn.add_binary_node(
             "WetGrass",
-            vec!["Rain", "Sprinkler"], // parent_names: Orden de los padres
-            wetgrass_cpt_data
+            vec!["Rain", "Sprinkler"],
+            vec![
+                (vec![true, true], 0.99),
+                (vec![true, false], 0.80),
+                (vec![false, true], 0.90),
+                (vec![false, false], 0.00),
+            ]
         )?;
-
 
         Ok(bn)
     }
 
-    #[test]
-    fn test_topological_order() {
-        let bn = setup().unwrap();
-        let order = bn.topological_order().unwrap();
+    // Setup para tests de nodos discretos
+    fn setup_discrete_network() -> Result<BayesianNetwork, String> {
+        let mut bn = BayesianNetwork::new();
 
-        // Una topological válida puede ser:
-        // [0,1,2] o [1,0,2]
-        assert!(order == vec![0, 1, 2] || order == vec![1, 0, 2]);
+        // Nodo discreto: Difficulty del curso
+        bn.add_discrete_node(
+            "Difficulty",
+            vec![],
+            vec!["Easy", "Hard"],
+            HashMap::from([
+                (vec![], HashMap::from([("Easy", 0.6), ("Hard", 0.4)]))
+            ])
+        )?;
+
+        // Nodo discreto: Intelligence del estudiante
+        bn.add_discrete_node(
+            "Intelligence",
+            vec![],
+            vec!["Low", "High"],
+            HashMap::from([
+                (vec![], HashMap::from([("Low", 0.7), ("High", 0.3)]))
+            ])
+        )?;
+
+        // Nodo discreto: Grade (depende de Difficulty e Intelligence)
+        bn.add_discrete_node(
+            "Grade",
+            vec!["Difficulty", "Intelligence"],
+            vec!["A", "B", "C"],
+            HashMap::from([
+                (vec!["Easy", "High"], HashMap::from([("A", 0.8), ("B", 0.15), ("C", 0.05)])),
+                (vec!["Easy", "Low"], HashMap::from([("A", 0.5), ("B", 0.3), ("C", 0.2)])),
+                (vec!["Hard", "High"], HashMap::from([("A", 0.6), ("B", 0.25), ("C", 0.15)])),
+                (vec!["Hard", "Low"], HashMap::from([("A", 0.2), ("B", 0.4), ("C", 0.4)])),
+            ])
+        )?;
+
+        Ok(bn)
     }
 
+    // Tests básicos de estructura
+    #[test]
+    fn test_network_creation() {
+        let bn = BayesianNetwork::new();
+        assert_eq!(bn.get_nodes().len(), 0);
+        assert_eq!(bn.get_edges().len(), 0);
+    }
+
+    #[test]
+    fn test_add_binary_nodes() {
+        let bn = setup_simple_network().unwrap();
+
+        assert_eq!(bn.get_nodes().len(), 3);
+        assert_eq!(bn.get_edges().len(), 3);
+
+        // Verificar que los nodos existen
+        assert!(bn.get_id_from_name("Rain").is_some());
+        assert!(bn.get_id_from_name("Sprinkler").is_some());
+        assert!(bn.get_id_from_name("WetGrass").is_some());
+    }
+
+    #[test]
+    fn test_add_discrete_nodes() {
+        let bn = setup_discrete_network().unwrap();
+
+        assert_eq!(bn.get_nodes().len(), 3);
+        assert_eq!(bn.get_edges().len(), 2);
+
+        // Verificar nombres
+        assert!(bn.get_id_from_name("Difficulty").is_some());
+        assert!(bn.get_id_from_name("Intelligence").is_some());
+        assert!(bn.get_id_from_name("Grade").is_some());
+    }
+
+    #[test]
+    fn test_duplicate_node_name() {
+        let mut bn = BayesianNetwork::new();
+
+        let result1 = bn.add_binary_node("Rain", vec![], vec![(vec![], 0.2)]);
+        assert!(result1.is_ok());
+
+        let result2 = bn.add_binary_node("Rain", vec![], vec![(vec![], 0.5)]);
+        assert!(result2.is_err());
+    }
+
+    #[test]
+    fn test_nonexistent_parent() {
+        let mut bn = BayesianNetwork::new();
+
+        let result = bn.add_binary_node(
+            "Child",
+            vec!["NonexistentParent"],
+            vec![(vec![true], 0.5)]
+        );
+
+        assert!(result.is_err());
+    }
+
+    // Tests de estructura del grafo
+    #[test]
+    fn test_topological_order() {
+        let bn = setup_simple_network().unwrap();
+        let order = bn.topological_order().unwrap();
+
+        // Verificar que el orden es válido
+        assert_eq!(order.len(), 3);
+
+        // Rain y Sprinkler deben venir antes que WetGrass
+        let wetgrass_id = bn.get_id_from_name("WetGrass").unwrap();
+        let rain_id = bn.get_id_from_name("Rain").unwrap();
+        let sprinkler_id = bn.get_id_from_name("Sprinkler").unwrap();
+
+        let wetgrass_pos = order.iter().position(|&x| x == wetgrass_id).unwrap();
+        let rain_pos = order.iter().position(|&x| x == rain_id).unwrap();
+        let sprinkler_pos = order.iter().position(|&x| x == sprinkler_id).unwrap();
+
+        assert!(rain_pos < wetgrass_pos);
+        assert!(sprinkler_pos < wetgrass_pos);
+    }
+
+    #[test]
+    fn test_get_parents_children() {
+        let bn = setup_simple_network().unwrap();
+        let wetgrass_id = bn.get_id_from_name("WetGrass").unwrap();
+        let rain_id = bn.get_id_from_name("Rain").unwrap();
+        let sprinkler_id = bn.get_id_from_name("Sprinkler").unwrap();
+
+        let wetgrass_parents = bn.get_parents(wetgrass_id);
+        assert_eq!(wetgrass_parents.len(), 2);
+        assert!(wetgrass_parents.contains(&rain_id));
+        assert!(wetgrass_parents.contains(&sprinkler_id));
+
+        let rain_children = bn.get_children(rain_id);
+        assert_eq!(rain_children.len(), 2); // Sprinkler y WetGrass
+    }
+
+    // Tests de CPT
+    #[test]
+    fn test_get_cpt() {
+        let bn = setup_simple_network().unwrap();
+        let rain_id = bn.get_id_from_name("Rain").unwrap();
+
+        let cpt = bn.get_cpt(rain_id);
+        assert!(cpt.is_some());
+    }
+
+    #[test]
+    fn test_cpt_probability_calculation() {
+        let bn = setup_simple_network().unwrap();
+        let sprinkler_id = bn.get_id_from_name("Sprinkler").unwrap();
+
+        let cpt = bn.get_cpt(sprinkler_id).unwrap();
+
+        // P(Sprinkler=True | Rain=True) debería ser 0.01
+        let prob = cpt.get_probability(&[State::True], State::True);
+        assert!(prob.is_some());
+        assert!((prob.unwrap() - 0.01).abs() < 1e-6);
+
+        // P(Sprinkler=True | Rain=False) debería ser 0.40
+        let prob = cpt.get_probability(&[State::False], State::True);
+        assert!(prob.is_some());
+        assert!((prob.unwrap() - 0.40).abs() < 1e-6);
+    }
+
+    // Tests de sampling
+    #[test]
+    fn test_sample_node() {
+        let bn = setup_simple_network().unwrap();
+        let rain_id = bn.get_id_from_name("Rain").unwrap();
+
+        // Samplear sin padres
+        let sample = bn.sample_node(&rain_id, &[]);
+        assert!(matches!(sample, State::True | State::False));
+    }
+
+    #[test]
+    fn test_get_parent_values() {
+        let bn = setup_simple_network().unwrap();
+        let wetgrass_id = bn.get_id_from_name("WetGrass").unwrap();
+
+        let mut sample = HashMap::new();
+        sample.insert(bn.get_id_from_name("Rain").unwrap(), State::True);
+        sample.insert(bn.get_id_from_name("Sprinkler").unwrap(), State::False);
+
+        let parent_values = bn.get_parent_values(&wetgrass_id, &sample);
+
+        // En lugar de verificar el orden exacto, verificar que contiene los valores correctos
+        assert_eq!(parent_values.len(), 2);
+        assert!(parent_values.contains(&State::True));
+        assert!(parent_values.contains(&State::False));
+
+        // O verificar usando conjuntos
+        let expected_values: std::collections::HashSet<_> =
+            [State::True, State::False].iter().cloned().collect();
+        let actual_values: std::collections::HashSet<_> =
+            parent_values.iter().cloned().collect();
+        assert_eq!(expected_values, actual_values);
+    }
+
+    // Tests de eliminación de nodos
+    #[test]
+    fn test_remove_node() {
+        let mut bn = setup_simple_network().unwrap();
+        let rain_id = bn.get_id_from_name("Rain").unwrap();
+
+        assert_eq!(bn.get_nodes().len(), 3);
+        assert_eq!(bn.get_edges().len(), 3);
+
+        let result = bn.remove_node(rain_id);
+        assert!(result.is_some());
+
+        assert_eq!(bn.get_nodes().len(), 2);
+        // Al eliminar Rain, deberían eliminarse las aristas hacia Sprinkler y WetGrass
+        assert_eq!(bn.get_edges().len(), 1); // Solo queda Sprinkler -> WetGrass
+    }
+
+    #[test]
+    fn test_remove_nonexistent_node() {
+        let mut bn = setup_simple_network().unwrap();
+
+        let result = bn.remove_node(999); // ID que no existe
+        assert!(result.is_none());
+    }
+
+    // Tests de mapeo nombre-ID
+    #[test]
+    fn test_name_id_mapping() {
+        let bn = setup_simple_network().unwrap();
+
+        let rain_id = bn.get_id_from_name("Rain").unwrap();
+        let rain_name = bn.get_name_from_id(rain_id).unwrap();
+
+        assert_eq!(rain_name, "Rain");
+        assert_eq!(bn.get_id_from_name("Rain").unwrap(), rain_id);
+    }
+
+    #[test]
+    fn test_nonexistent_name_mapping() {
+        let bn = setup_simple_network().unwrap();
+
+        assert!(bn.get_id_from_name("Nonexistent").is_none());
+        assert!(bn.get_name_from_id(999).is_none());
+    }
+
+    // Tests de validación de probabilidades
+    #[test]
+    fn test_invalid_probability_sum() {
+        let mut bn = BayesianNetwork::new();
+
+        // Primero agregar el nodo padre
+        bn.add_discrete_node(
+            "Parent",
+            vec![],
+            vec!["A", "B"],
+            HashMap::from([(vec![], HashMap::from([("A", 0.6), ("B", 0.3)]))]) // Suma 0.9, debería fallar
+        ).unwrap_err(); // Esto debería fallar porque la suma no es 1.0
+    }
+
+    // Test de make_states
+    #[test]
+    fn test_make_states() {
+        let bn = BayesianNetwork::new();
+        let states = bn.make_states(&["A", "B", "C"]);
+
+        assert_eq!(states.len(), 3);
+        assert!(matches!(states[0], State::Value(ref s) if s == "A"));
+        assert!(matches!(states[1], State::Value(ref s) if s == "B"));
+        assert!(matches!(states[2], State::Value(ref s) if s == "C"));
+    }
+
+    // Test de rejection sampling básico
+    #[test]
+    fn test_rejection_sampling_basic() {
+        let bn = setup_simple_network().unwrap();
+        let rain_id = bn.get_id_from_name("Rain").unwrap();
+
+        let mut evidence = HashMap::new();
+        evidence.insert(rain_id, State::True);
+
+        let wetgrass_id = bn.get_id_from_name("WetGrass").unwrap();
+        let distribution = bn.rejection_sampling(&evidence, wetgrass_id, 1000);
+
+        // Verificar que devuelve una distribución válida
+        assert!(!distribution.is_empty());
+        let total_prob: f64 = distribution.values().sum();
+        assert!((total_prob - 1.0).abs() < 0.1); // Permitir cierto margen de error
+    }
+
+    // Test de construcción desde partes
+    #[test]
+    fn test_from_parts() {
+        let mut dag = DAG::new();
+        dag.add_node(0);
+        dag.add_node(1);
+        dag.add_edge(0, 1);
+
+        let mut cpts = HashMap::new();
+        cpts.insert(0, Box::new(BinaryCPT { table: vec![(vec![], 0.5)] }) as Box<dyn CPTBase>);
+        cpts.insert(1, Box::new(BinaryCPT { table: vec![(vec![State::True], 0.8), (vec![State::False], 0.2)] }));
+
+        let mut name_to_id = HashMap::new();
+        name_to_id.insert("A".to_string(), 0);
+        name_to_id.insert("B".to_string(), 1);
+
+        let bn = BayesianNetwork::from_parts(dag, cpts, name_to_id);
+
+        assert_eq!(bn.get_nodes().len(), 2);
+        assert_eq!(bn.get_edges().len(), 1);
+        assert_eq!(bn.get_id_from_name("A"), Some(0));
+        assert_eq!(bn.get_name_from_id(1).unwrap(), "B");
+    }
+
+    // Test de print_ids (aunque es difícil testear output, al menos verificar que no panic)
+    #[test]
+    fn test_print_ids_no_panic() {
+        let bn = setup_simple_network().unwrap();
+        bn.print_ids(); // Solo verificamos que no cause panic
+    }
 }
