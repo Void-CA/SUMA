@@ -19,20 +19,34 @@ pub fn rejection_sampling(
 
         for node in &topo_order {
             let parent_values = network.get_parent_values(node, &sample);
+            // 1. Generar el valor muestreado (P(X|Parents))
             let generated_val = network.sample_node(node, &parent_values);
 
+            let node_value;
+
             if let Some(evidence_val) = evidence.get(node) {
-                if generated_val != *evidence_val {
+                // 2. Si el nodo es evidencia, verificar consistencia
+                if generated_val == *evidence_val {
+                    // Si es consistente, usar el valor de la evidencia para la muestra.
+                    // Esto es crucial para asegurar que el resto de la red use este valor.
+                    node_value = evidence_val.clone();
+                } else {
+                    // 3. Si no es consistente, rechazar la muestra
                     valid = false;
                     break;
                 }
+            } else {
+                // 4. Si no es evidencia, usar el valor muestreado
+                node_value = generated_val;
             }
 
-            sample.insert(*node, generated_val);
+            // Insertar el valor del nodo en la muestra
+            sample.insert(*node, node_value);
         }
 
         if valid {
             accepted_samples += 1;
+            // Clonamos el estado del nodo consultado
             let result_state = sample.get(&query).unwrap().clone();
             *counts.entry(result_state).or_insert(0) += 1;
         }
