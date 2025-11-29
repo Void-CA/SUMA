@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
-
+use serde::{Deserialize, Serialize};
 
 pub trait BayesianNetworkBase {
     fn get_nodes(&self) -> Vec<usize>;
@@ -26,7 +26,7 @@ pub trait CPTBase {
 }
 
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum State {
     True,
     False,

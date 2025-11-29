@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 use crate::core::probability::bayes::BN_base::{State, CPTBase};
 
+#[derive(Serialize, Deserialize)]
 pub struct BinaryCPT {
     pub table: Vec<(Vec<State>, f64)>, // padres + P(valor=true)
 }
@@ -58,6 +60,7 @@ impl CPTBase for BinaryCPT {
 }
 
 
+#[derive(Serialize, Deserialize)]
 pub struct DiscreteCPT {
     // 1. Almacenar los posibles valores del nodo directamente (más eficiente)
     pub node_possible_values: Vec<State>,
