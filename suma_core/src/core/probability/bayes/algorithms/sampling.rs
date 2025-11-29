@@ -86,7 +86,7 @@ pub fn likelihood_sampling( // Nombre mantenido por compatibilidad con WASM
                 node_value = evidence_val.clone();
 
                 // 2. Ponderar la muestra: W = W * P(Evidencia | Padres)
-                let prob_evidence = network.get_conditional_probability(*node, &parent_values, evidence_val.clone()).unwrap();
+                let prob_evidence = network.get_conditional_probability(*node, &parent_values, evidence_val.clone()).unwrap_or(0.0);
                 sample_weight *= prob_evidence;
 
             } else {
