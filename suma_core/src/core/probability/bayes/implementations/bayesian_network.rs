@@ -108,7 +108,8 @@ impl BayesianNetwork {
         node: &usize,
         sample: &HashMap<usize, State>,
     ) -> Vec<State> {
-        let parents = self.get_parents(*node);
+        let mut parents = self.get_parents(*node);
+        parents.sort();
         parents
             .iter()
             .map(|p| sample.get(p).cloned().unwrap_or(State::False))
@@ -117,15 +118,15 @@ impl BayesianNetwork {
 
     pub fn sample_node(&self, node: &usize, parent_values: &[State]) -> State {
         if let Some(cpt) = self.get_cpt(*node) {
-            let prob_true = cpt.get_probability(parent_values, State::True).unwrap_or(0.0);
-            let rand_val: f64 = super::super::super::utils::random::random_f64();
-            if rand_val < prob_true {
-                State::True
-            } else {
-                State::False
-            }
+
+            // FIX CRÍTICO: Usar unwrap_or_else para proporcionar un fallback seguro.
+            cpt.sample(parent_values).unwrap_or_else(|| {
+                cpt.possible_values().into_iter().next().unwrap_or(State::False)
+            })
+
         } else {
-            State::False // Valor por defecto si no hay CPT
+            // Si el nodo no tiene CPT, devolvemos el valor por defecto.
+            State::False
         }
     }
 

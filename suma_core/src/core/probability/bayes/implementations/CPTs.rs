@@ -11,10 +11,11 @@ impl CPTBase for BinaryCPT {
             .iter()
             .find(|(parents, _)| parents == parent_values)
             .map(|(_, p)| match value {
-                State::True => *p,
-                State::False => 1.0 - *p,
-                State::Value(_) => todo!(),
+                State::True => Some(*p),
+                State::False => Some(1.0 - *p),
+                State::Value(_) => return None,
             })
+            .flatten()
     }
 
     fn possible_values(&self) -> Vec<State> {
@@ -23,6 +24,16 @@ impl CPTBase for BinaryCPT {
 
     fn parent_combinations(&self) -> Vec<Vec<State>> {
         self.table.iter().map(|(parents, _)| parents.clone()).collect()
+    }
+
+    fn sample(&self, parent_values: &[State]) -> Option<State> {
+        let p_true = self.get_probability(parent_values, State::True)?;
+        let rand: f64 = crate::core::probability::utils::random::random_f64();
+        if rand <= p_true {
+            Some(State::True)
+        } else {
+            Some(State::False)
+        }
     }
 
     fn new_no_parents(_possible_values: Vec<State>, probabilities: Vec<f64>) -> Self where Self: Sized {
@@ -66,6 +77,22 @@ impl CPTBase for DiscreteCPT {
 
     fn parent_combinations(&self) -> Vec<Vec<State>> {
         self.table.keys().cloned().collect()
+    }
+
+    fn sample(&self, parent_values: &[State]) -> Option<State> {
+        let distribution = self.table.get(parent_values)?;
+        let mut cumulative_prob = 0.0;
+        let rand: f64 = crate::core::probability::utils::random::random_f64();
+
+        for state in &self.node_possible_values {
+            if let Some(&prob) = distribution.get(state) {
+                cumulative_prob += prob;
+                if rand <= cumulative_prob {
+                    return Some(state.clone());
+                }
+            }
+        }
+        None
     }
 
     fn new_no_parents(possible_values: Vec<State>, probabilities: Vec<f64>) -> Self {
