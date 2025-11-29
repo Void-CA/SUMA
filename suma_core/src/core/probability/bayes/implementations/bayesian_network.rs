@@ -673,7 +673,6 @@ mod tests {
         assert_eq!(bn.get_name_from_id(1).unwrap(), "B");
     }
 
-    // Test del nuevo método serializable
     #[test]
     fn test_get_node_cpt_serializable() {
         let bn = setup_simple_network().unwrap();
