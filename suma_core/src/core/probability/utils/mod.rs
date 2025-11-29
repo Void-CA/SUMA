@@ -1,2 +1,2 @@
 pub mod random;
-mod serialize;
+pub mod serialize;

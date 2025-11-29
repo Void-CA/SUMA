@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use crate::core::probability::bayes::BN_base::{State, CPTBase};
+use crate::core::probability::utils::serialize::serialize_complex_key;
 
 #[derive(Serialize, Deserialize)]
 pub struct BinaryCPT {

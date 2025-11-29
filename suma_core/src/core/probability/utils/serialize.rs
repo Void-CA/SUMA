@@ -2,7 +2,7 @@
 use serde::{Serialize, Serializer};
 use std::collections::HashMap;
 
-fn serialize_complex_key<S, K, V>(
+pub fn serialize_complex_key<S, K, V>(
     map: &HashMap<K, V>,
     serializer: S
 ) -> Result<S::Ok, S::Error>
