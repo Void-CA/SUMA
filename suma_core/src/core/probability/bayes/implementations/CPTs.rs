@@ -64,6 +64,8 @@ impl CPTBase for BinaryCPT {
 pub struct DiscreteCPT {
     // 1. Almacenar los posibles valores del nodo directamente (más eficiente)
     pub node_possible_values: Vec<State>,
+
+    #[serde(serialize_with = "serialize_complex_key")]
     pub table: HashMap<Vec<State>, HashMap<State, f64>>,
 }
 
