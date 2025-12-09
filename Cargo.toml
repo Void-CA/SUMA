@@ -1,36 +1,8 @@
-[package]
-name = "suma_ulsa"
-version = "0.1.0"
-edition = "2021"
-authors = ["Ari Castillo <castilloari282@gmail.com>"]
-description = "Sistema Universitario de Métodos Académicos (SUMA) - librería Rust con bindings Python"
-license = "MIT"
-
-[features]
-default = []
-polars = ["dep:polars"]
-
-[lib]
-name = "suma_ulsa_native" 
-crate-type = ["cdylib"]  # Necesario para exportar a Python
-
-[dependencies]
-pyo3 = { version = "0.26", features = ["extension-module"] }
-polars = { version = "0.51.0", optional = true, features = ["lazy", "strings"] }
-rust_xlsxwriter = "0.74"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0.145", features = ["preserve_order"] }
-serde_yaml = "0.9.34"
-csv = "1.4.0"
-tempfile = "3.23.0"
-thiserror = "2.0.17"
-float-cmp = "0.10.0"
-num = "0.4.3"
-num-traits = "0.2.19"
-ordered-float = "5.1.0"
-
 [workspace]
 resolver = "2"
-members = ["suma_core"]
 
-[dev-dependencies]
+members = [
+    "crates/suma_core",      # Lógica pura (Rust)
+    "crates/suma_codex",     # DSL
+    "crates/suma_py",  # Interfaz con Python (PyO3)
+]
