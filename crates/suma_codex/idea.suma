@@ -1,0 +1,6 @@
+optimization {
+    maximize: 2x + y
+    constraints:
+        x <= 10
+        x + y >= 7
+}

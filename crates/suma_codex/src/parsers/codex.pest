@@ -1,0 +1,19 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+// El archivo completo
+program = _{ SOI ~ stmt* ~ EOI }
+
+stmt = { global_assignment | domain_block }
+
+global_assignment = { "let" ~ ident ~ "=" ~ number ~ ";" }
+
+// Esto detecta: optimization "algo" { ... }
+// Y captura el contenido crudo (raw_content) para pasárselo a tu parser específico
+domain_block = { ident ~ (string_lit)? ~ "{" ~ raw_content ~ "}" }
+
+// Captura todo hasta que se cierre la llave (simplificado)
+raw_content = @{ (!"}" ~ ANY)* } 
+
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+number = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }

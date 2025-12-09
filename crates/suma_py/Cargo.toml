@@ -1,0 +1,12 @@
+[package]
+name = "suma_ulsa_native" # <--- IMPORTANTE: Debe coincidir con pyproject.toml
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "suma_ulsa_native" # Esto genera el archivo .so / .pyd
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27", features = ["extension-module"] }
+suma_core = { path = "../suma_core" }

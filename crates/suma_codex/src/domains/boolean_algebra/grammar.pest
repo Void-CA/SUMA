@@ -1,0 +1,17 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+// Regla principal
+bool_problem = { SOI ~ expression ~ EOI }
+
+expression = { term ~ (or_op ~ term)* }
+term       = { factor ~ (and_op ~ factor)* }
+factor     = { not_op? ~ atom }
+
+atom       = { boolean | ident | "(" ~ expression ~ ")" }
+
+// Operadores y Valores
+or_op   = { "or" | "OR" | "|" }
+and_op  = { "and" | "AND" | "&" }
+not_op  = { "not" | "NOT" | "!" }
+boolean = { "true" | "TRUE" | "false" | "FALSE" }
+ident   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
