@@ -1,6 +1,6 @@
 use pyo3::{prelude::*, types::PyDict};
 
-use crate::core::SubnetRow;
+use suma_core::SubnetRow;
 
 #[pyclass(name = "SubnetRow", module = "suma_ulsa.networking")]
 #[derive(Clone)]

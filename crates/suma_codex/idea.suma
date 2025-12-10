@@ -4,3 +4,4 @@ optimization {
         x <= 10
         x + y >= 7
 }
+

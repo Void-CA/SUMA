@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
 // Asumiendo que tienes estas definiciones en tu crate
-use crate::core::NumberConverter;
+use suma_core::NumberConverter;
 
 #[pyclass(name = "NumberConverter")]
 struct PyNumberConverter {

@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use crate::core::networking::utils as core_utils;
+use suma_core::networking::utils as core_utils;
 
 #[pyfunction]
 #[pyo3(name = "compress_ipv6")]

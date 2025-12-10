@@ -2,8 +2,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 use crate::bindings::networking::subnet_row::PySubnetRow;
-use crate::core::{SubnetRow, BaseCalculator, VLSMCalculator};
-use crate::core::formatting::export::Exportable;
+use suma_core::{SubnetRow, BaseCalculator, VLSMCalculator};
+use suma_core::formatting::export::Exportable;
 
 #[pyclass(name = "VLSMCalculator", module = "suma_ulsa.networking")]
 pub struct PyVLSMCalculator {
