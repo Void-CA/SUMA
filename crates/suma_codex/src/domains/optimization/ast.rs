@@ -35,6 +35,7 @@ pub struct Constraint {
 
 #[derive(Debug, Serialize, Clone)]
 pub struct OptimizationModel {
+    pub name: Option<String>,
     pub obj_type: OptType,
     pub obj_expr: Expr,
     pub constraints: Vec<Constraint>,

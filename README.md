@@ -1,171 +1,175 @@
-# SUMA — Sistema Universitario de Métodos Académicos
+# 🌐 SUMA — Sistema Universitario de Métodos Académicos
 
-<div align="center">
+> **Ecosistema modular para modelar, aprender y ejecutar métodos académicos de forma rigurosa, declarativa y reproducible.**
 
-[![Versión](https://img.shields.io/badge/SUMA-v0.1.0-blue.svg)](https://github.com/Void-CA/SUMA)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)]()
-[![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)]()
+SUMA es un ecosistema académico abierto, compuesto por:
+
+**Core en Rust** (algoritmos rigurosos) • **Módulos independientes** • **Bindings para Python** • **Lenguaje declarativo (Codex)**
 
 </div>
 
-**Librería académica para el aprendizaje y resolución rigurosa de métodos universitarios, con un enfoque práctico y accesible.**
+---
+
+## 🌱 Filosofía
+
+SUMA existe para tres propósitos fundamentales:
+
+* **✔ Uso académico:** Para enseñar estructuras, probabilidad, IA clásica, optimización, simulación y finanzas con resultados reproducibles y ejecutables.
+* **✔ Uso investigativo:** Para implementar modelos desde cero, compararlos y estudiar métodos con transparencia total.
+* **✔ Uso práctico:** Para que desarrolladores integren módulos de SUMA en sus proyectos (Rust, Python, Tauri, Web), manteniendo el rigor matemático y algoritmos eficientes.
 
 ---
 
-## 📚 Módulo de Álgebra Booleana
+## 🧩 Arquitectura del Ecosistema
 
-El módulo de álgebra booleana proporciona herramientas completas para trabajar con expresiones lógicas, tablas de verdad, simplificación y análisis de circuitos digitales.
+```text
+       ┌─────────────────────────────┐
+       │            SUMA             │
+       │     Ecosistema Completo     │
+       └──────────────┬──────────────┘
+                      │
+     ┌────────────────▼──────────────────┐
+     │              Core                 │
+     │          (Rust crate)             │
+     │   Estructuras, modelos, lógica    │
+     └──────────────┬────────────────────┘
+                    │
+       ┌────────────▼──────────────┐
+       │         Bindings          │
+       │   Python · WebAssembly    │
+       └────────────┬──────────────┘
+                    │
+     ┌──────────────▼──────────────┐
+     │        Módulos SUMA         │
+     │ boolean_algebra/            │
+     │ data_structures/            │
+     │ finance/                    │
+     │ numerics/                   │
+     └──────────────────────────────┘
 
-## 🎯 Características Principales
+## 🔢 Módulo Destacado: Álgebra Booleana
 
-- Expresiones Booleanas: soporte para operadores lógicos básicos y compuestos.
-- Tablas de Verdad: generación automática y análisis de propiedades.
-- Simplificación: reducción de expresiones usando métodos algebraicos.
-- Validación: verificación de tautologías, contradicciones y equivalencias.
-- Compatibilidad Python: API intuitiva para usuarios de Python.
+El módulo de álgebra booleana es actualmente el más completo y sirve como referencia del diseño del ecosistema: seguro, rápido, expresivo y con una API unificada.
 
----
+### Características Principales
 
-## 🔧 Instalación (en desarrollo)
+- Evaluación de expresiones complejas.
+- Generación automática de tablas de verdad.
+- Simplificación de expresiones.
+- Verificación de tautologías, contradicciones y equivalencias.
+- Exportación de datos: CSV, JSON, Polars, diccionarios y listas.
+
+## 🧠 Operadores Soportados
+
+| Operador | Palabras Clave (Python) | Símbolos |
+|----------|--------------------------|----------|
+| AND | and, & | ∧ |
+| OR | or, \| | ∨ |
+| NOT | not, ~ | ¬ |
+| XOR | xor, ^ | ⊕ |
+| IMPLICA | implies, => | → |
+| EQUIVALENCIA | iff, <=> | ↔ |
+
+## 🛠️ API Esencial
+
+La clase BooleanExpr expone los siguientes métodos clave:
+
+- evaluate(vars)
+- truth_table()
+- is_tautology() / is_contradiction()
+- simplify()
+- equivalent(other)
+- to_normal_form()
+- to_dnf(), to_cnf()
+
+## ⚡ Instalación y Uso
+
+⚠️ Nota: SUMA está en evolución activa. Algunos módulos pueden ser experimentales.
+
+Instala el paquete oficial de Python:
 
 ```bash
 pip install suma_ulsa
 ```
 
-> Nota: Si usas este repositorio desde fuentes, sigue las instrucciones de "Instalación para desarrollo" más abajo.
-
-## 💡 Uso Rápido
+## 🚀 Ejemplo Rápido
 
 ```python
 from suma_ulsa.boolean_algebra import BooleanExpr
 
-# Crear y evaluar expresiones booleanas
+# Definir una expresión
 expr = BooleanExpr("(A and B) or (not C)")
-resultado = expr.evaluate({'A': True, 'B': False, 'C': True})
-print(f"Resultado: {resultado}")
 
-# Generar tabla de verdad completa
+# Evaluar con variables específicas
+print(expr.evaluate({'A': True, 'B': False, 'C': True}))
+
+# Generar y exportar tabla de verdad
 tabla = expr.truth_table()
-print(tabla)
+print(tabla.to_csv())
 
-# Verificar propiedades
-print(f"¿Es tautología? {expr.is_tautology()}")
-print(f"¿Es contradicción? {expr.is_contradiction()}")
+# Verificar propiedades lógicas
+print("¿Tautología?", expr.is_tautology())
 ```
 
----
+## 🔬 Roadmap del Ecosistema
 
-## 📖 Ejemplos Detallados
+| Módulo | Estado | Descripción |
+|--------|--------|-------------|
+| Core | 🟦 En desarrollo | Base en Rust, estructuras, análisis, runtime del lenguaje. |
+| Boolean Algebra | 🟩 Completado | Expresiones, tablas, simplificación. |
+| Data Structures | 🟧 En desarrollo | Árboles, grafos, recorridos, dependencias. |
+| Numerical Methods | 🟨 Planeado | Ecuaciones, integración, derivación. |
+| Finance | 🟨 Planeado | TVM (Valor del dinero en el tiempo), préstamos, inversiones. |
+| SUMA Codex (DSL) | 🔵 Diseño | Lenguaje declarativo orientado a modelos. |
+| SUMA CLI + REPL | 🔵 Diseño | Ejecución interactiva y consultas de modelos. |
 
-### 1. Expresiones Básicas
+## 👨‍💻 Desarrollo
 
-```python
-from suma_ulsa.boolean_algebra import BooleanExpr
-
-# Expresión simple
-expr1 = BooleanExpr("A and B")
-print(expr1.evaluate({'A': True, 'B': True}))  # True
-
-# Expresión con múltiples operadores
-expr2 = BooleanExpr("(A or B) and not C")
-valores = {'A': True, 'B': False, 'C': True}
-print(expr2.evaluate(valores))  # False
-```
-
-### 2. Tablas de Verdad
-
-```python
-# Generar tabla de verdad
-expr = BooleanExpr("A xor B")
-tabla = expr.truth_table()
-
-# La tabla muestra todas las combinaciones y resultados
-print(tabla)
-# Salida aproximada:
-# | A | B | Result |
-# |---|---|--------|
-# | 0 | 0 |   0    |
-# | 0 | 1 |   1    |
-# | 1 | 0 |   1    |
-# | 1 | 1 |   0    |
-```
-
-#### 2.1 Metodos de la Tabla de Verdad
-
-```python
-print("CSV:\n", tabla.to_csv())
-print("JSON:", tabla.to_json())
-print("Lazyframe:", tabla.to_lazyframe())
-print("Polars Dataframe:", tabla.to_polars())
-print("Dictionary:", tabla.to_column_dict())
-print("List: ", tabla.to_list())
-print("Named rows:", tabla.to_named_rows())
-```
-
----
-
-## 🏗️ API Principal
-
-Clase `Expression` — métodos principales:
-
-- `__init__(expr: str)`: Crea expresión desde string
-- `evaluar(**variables)`: Evalúa con valores específicos
-- `tabla_verdad()`: Genera tabla de verdad completa
-- `es_tautologia()`: Verifica si siempre es verdadera
-- `es_tautologia()`: Verifica si siempre es falsa
-- `es_contingencia()`: Verifica si depende de variables
-- `simplificar()`: Retorna expresión simplificada
-- `equivalentes(otra_expr)`: Compara equivalencia lógica
-
-### Operadores soportados
-
-- AND: `and`, `&`, `∧`
-- OR: `or`, `|`, `∨`
-- NOT: `not`, `~`, `¬`
-- XOR: `xor`, `^`, `⊕`
-- IMPLICA: `implies`, `=>`, `→`
-- EQUIVALE: `iff`, `<=>`, `↔`
-
----
-
-
-## 🔬 Características Avanzadas
-
-- Optimización de rendimiento: Implementado en Rust para máxima velocidad
-- Manejo de errores: Mensajes descriptivos para expresiones inválidas
-- Variables ilimitadas: Soporte para expresiones con múltiples variables
-- Formas normales: Conversión a FNC y FND
-- Mapas de Karnaugh: (Próximamente) Simplificación visual
-
----
-
-## 🗓️ Próximos Módulos
-
-| Módulo | Estado | Funcionalidades |
-|---|---:|---|
-| Álgebra Booleana | ✅ Implementado | Expresiones, tablas de verdad, simplificación |
-| Estructuras de Datos | 🔄 En desarrollo | Grafos, árboles, algoritmos de búsqueda |
-| Finanzas Computacionales | 📅 Planeado | TVM, análisis de inversiones, préstamos |
-| Métodos Numéricos | 📅 Planeado | Ecuaciones, derivación, integración |
-
----
-
-## 🚀 Instalación para Desarrollo
+Si deseas contribuir o ejecutar el proyecto desde la fuente:
 
 ```bash
-# Clonar repositorio
+# Clonar el repositorio
 git clone https://github.com/Void-CA/suma.git
 cd suma
 
-# Instalar en modo desarrollo
+# Instalar en modo editable
 pip install -e .
 
-# Ejecutar tests
-cargo test
-python -m pytest tests/
+# Ejecutar pruebas
+cargo test  # Para el core en Rust
+pytest      # Para los bindings de Python
 ```
+
+## 📂 Estructura del Proyecto
+
+```
+suma/
+├── src/
+│   ├── lib.rs
+│   ├── core/               # Motor central en Rust
+│   ├── modules/
+│   │   └── boolean_algebra/
+│   └── bindings/           # Python, WASM
+├── suma_ulsa/              # Paquete Python oficial
+│   ├── boolean_algebra/
+│   └── ...
+```
+
+## 🤝 Contribuciones
+
+Las contribuciones son bienvenidas. Las prioridades actuales son:
+
+- Implementación del Codex (lenguaje SUMA).
+- Extensiones del core.
+- Nuevos módulos académicos.
+- Ejemplos, documentación y benchmarks reproducibles.
+
+## 📄 Licencia
+
+MIT License — ver el archivo LICENSE para más detalles.
+
+SUMA: diseñado por estudiantes, para estudiantes, para aprender de manera rigurosa, clara y reproducible.
+
 
 ---
 
@@ -193,6 +197,8 @@ suma/
 ├── suma_ulsa/                   # Paquete Python
 │   ├── __init__.py
 │   └── boolean_algebra/
+
+```
 
 ---
 

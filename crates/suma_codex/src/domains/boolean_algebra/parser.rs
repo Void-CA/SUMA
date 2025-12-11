@@ -13,16 +13,23 @@ impl DomainParser for BooleanParser {
     fn domain_name(&self) -> &'static str { "boolean" }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
-        let pairs = BooleanPestGrammar::parse(Rule::bool_problem, content)
+        // Parseamos SOLO la expresión interna del bloque
+        let pairs = BooleanPestGrammar::parse(Rule::boolean_block, content)
             .map_err(|e| format!("Error en lógica booleana: {}", e))?;
 
-        // Como la gramática solo tiene una expresión raíz, tomamos la primera
-        let root_pair = pairs.peek().unwrap(); // bool_problem
-        let expr_pair = root_pair.into_inner().next().unwrap(); // expression
+        let root_pair = pairs.into_iter().next().unwrap(); // boolean_block
 
-        let model = BooleanModel {
-            root: build_expression(expr_pair),
+        let mut model = BooleanModel {
+            root: BoolExpr::Literal(false), // temporal
+            name: None,                     // nombre lo asigna el dispatcher
         };
+
+        // Iteramos sobre los hijos de boolean_block
+        for inner_pair in root_pair.into_inner() {
+            if inner_pair.as_rule() == Rule::expression {
+                model.root = build_expression(inner_pair);
+            }
+        }
 
         Ok(Box::new(model))
     }

@@ -20,5 +20,6 @@ pub enum BoolExpr {
 // El resultado final de este dominio es simplemente una expresión raíz
 #[derive(Debug, Serialize, Clone)]
 pub struct BooleanModel {
+    pub name: Option<String>,
     pub root: BoolExpr,
 }

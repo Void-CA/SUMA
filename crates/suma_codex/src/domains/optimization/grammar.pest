@@ -1,19 +1,22 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-// CORRECCIÓN 1: Usar 'constraints_section' en vez de "subject to"
-problem = { SOI ~ objective ~ constraints_section ~ EOI } 
+// Un bloque de optimización completo (tu 'problem')
+optimize_block = { SOI  ~ objective ~ constraints_section ~ EOI }
 
-// CORRECCIÓN 2: Agregar el ":" literal para que acepte "maximize:"
-objective = { type_obj ~ ":" ~ expression } 
+// El header opcional con nombre
+optimize_header = { "optimize" ~ string_lit }
+
+// Objetivo
+objective = { type_obj ~ ":" ~ expression }
 
 type_obj  = { "maximize" | "minimize" }
 
-// Sección de restricciones (Esta regla estaba bien definida pero no usada)
+// Restricciones
 constraints_section = { "constraints" ~ ":" ~ constraints }
 constraints = { constraint+ }
 constraint  = { expression ~ operator ~ expression }
 
-// --- Matemáticas (Esto estaba bien) ---
+// --- Matemáticas ---
 operator   = { "<=" | ">=" | "==" | "<" | ">" }
 expression = { term ~ (add_op ~ term)* }
 term       = { factor ~ (mul_op ~ factor)* }
@@ -22,3 +25,4 @@ add_op     = { "+" | "-" }
 mul_op     = { "*" | "/" }
 ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 number     = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" | "'" ~ (!"'" ~ ANY)* ~ "'" }

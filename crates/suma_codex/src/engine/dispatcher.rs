@@ -49,28 +49,43 @@ impl CodexEngine {
         results
     }
 
-    // He extraído esta lógica a una función privada para que sea más legible
     fn handle_domain_block(&self, pair: pest::iterators::Pair<Rule>, results: &mut Vec<CodexResult>) {
         let mut parts = pair.into_inner();
         let domain_name = parts.next().unwrap().as_str();
 
-        // Saltamos el string opcional (nombre del problema) si existe
-        let mut next_part = parts.next().unwrap();
-        if next_part.as_rule() == Rule::string_lit {
-            next_part = parts.next().unwrap();
-        }
-        let raw_content = next_part.as_str();
+        // Extraer nombre opcional
+        let mut raw_content_pair = parts.next().unwrap();
+        let name = if raw_content_pair.as_rule() == Rule::string_lit {
+            let n = crate::utils::unquote(raw_content_pair.as_str());
+            raw_content_pair = parts.next().unwrap();
+            Some(n)
+        } else {
+            None
+        };
 
-        // 2. Dispatching
+        let raw_content = raw_content_pair.as_str();
+
         if let Some(parser) = self.registry.get(domain_name) {
             match parser.parse_domain(raw_content) {
-                Ok(any_ast) => self.convert_and_store(any_ast, results),
+                Ok(mut any_ast) => {
+                    // Asignar el nombre opcional
+                    if let Some(n) = name {
+                        if let Some(opt_model) = any_ast.downcast_mut::<OptimizationModel>() {
+                            opt_model.name = Some(n);
+                        } else if let Some(bool_model) = any_ast.downcast_mut::<BooleanModel>() {
+                            bool_model.name = Some(n);
+                        }
+                    }
+                    self.convert_and_store(any_ast, results)
+                }
                 Err(e) => eprintln!("Error en dominio '{}': {}", domain_name, e),
             }
         } else {
             eprintln!("Advertencia: No hay parser registrado para '{}'", domain_name);
         }
     }
+
+
 
     // 3. Conversión de Tipos (Any -> Enum)
     fn convert_and_store(&self, any_ast: Box<dyn Any>, results: &mut Vec<CodexResult>) {

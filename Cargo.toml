@@ -4,5 +4,5 @@ resolver = "2"
 members = [
     "crates/suma_core",      # Lógica pura (Rust)
     "crates/suma_codex",     # DSL
-    "crates/suma_py",  # Interfaz con Python (PyO3)
+    "crates/suma_py", "crates/suma_cli",  # Interfaz con Python (PyO3)
 ]

@@ -13,33 +13,23 @@ impl DomainParser for OptimizationParser {
     fn domain_name(&self) -> &'static str { "optimize" }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
-        // 1. Obtenemos los pares. Como pedimos Rule::problem, sabemos que el 
-        // primer (y único) par será de tipo 'problem'.
-        let mut pairs = OptimizationPestGrammar::parse(Rule::problem, content)
+        let mut pairs = OptimizationPestGrammar::parse(Rule::optimize_block, content)
             .map_err(|e| format!("Error parsing optimization: {}", e))?;
 
-        // Inicialización
         let mut model = OptimizationModel {
+            name: None,
             obj_type: OptType::Maximize,
-            obj_expr: Expr::Number(0.0), 
+            obj_expr: Expr::Number(0.0),
             constraints: Vec::new(),
         };
 
-        // Tomamos el par raíz directamente.
-        let problem_pair = pairs.next().unwrap(); 
+        let block_pair = pairs.next().unwrap(); // optimize_block
 
-        // Iteramos sobre los hijos directos de 'problem'
-        for inner_pair in problem_pair.into_inner() {
-            match inner_pair.as_rule() {
-                Rule::objective => {
-                    // Delegamos a un especialista
-                    process_objective(inner_pair, &mut model);
-                },
-                Rule::constraints_section => {
-                    // Delegamos a otro especialista
-                    process_constraints_section(inner_pair, &mut model);
-                },
-                _ => {} // Ignoramos EOI u otros
+        for inner in block_pair.into_inner() {
+            match inner.as_rule() {
+                Rule::objective => process_objective(inner, &mut model),
+                Rule::constraints_section => process_constraints_section(inner, &mut model),
+                _ => {}
             }
         }
 
@@ -162,3 +152,4 @@ fn build_constraint(pair: pest::iterators::Pair<Rule>) -> Constraint {
 
     Constraint { lhs, op, rhs }
 }
+

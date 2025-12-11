@@ -1,17 +1,22 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-// Regla principal
-bool_problem = { SOI ~ expression ~ EOI }
+// Bloque booleano completo
+boolean_block = { SOI ~ expression ~ EOI }
 
+// Header opcional con nombre
+boolean_header = { "boolean" ~ string_lit }
+
+// Boolean expressions
 expression = { term ~ (or_op ~ term)* }
 term       = { factor ~ (and_op ~ factor)* }
 factor     = { not_op? ~ atom }
-
 atom       = { boolean | ident | "(" ~ expression ~ ")" }
 
-// Operadores y Valores
+// Operadores y valores
 or_op   = { "or" | "OR" | "|" }
 and_op  = { "and" | "AND" | "&" }
 not_op  = { "not" | "NOT" | "!" }
 boolean = { "true" | "TRUE" | "false" | "FALSE" }
 ident   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" | "'" ~ (!"'" ~ ANY)* ~ "'" }
