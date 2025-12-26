@@ -1,0 +1,73 @@
+digraph SUMA_Usage {
+    rankdir=LR;
+    node [shape=box, style=rounded, fontsize=12];
+
+    subgraph cluster_user {
+        label="Usuario";
+        style=dashed;
+        user [label="Usuario"];
+    }
+
+    subgraph cluster_cli {
+        label="CLI de SUMA";
+        style=rounded;
+
+        cli [label="suma (CLI)", shape=box];
+
+        cli_run [label="Ejecutar archivos .suma\n(suma run archivo.suma)"];
+        cli_compile [label="Compilar/Validar modelos\n(suma check archivo.suma)"];
+        cli_fmt [label="Formatear código\n(suma fmt archivo.suma)"];
+        cli_docs [label="Documentación y ayuda\n(suma help)"];
+        cli_repl [label="Entrar al REPL\n(suma repl)"];
+        cli_tools [label="Herramientas utilitarias\n(export, inspect, etc.)"];
+
+        cli -> cli_run;
+        cli -> cli_compile;
+        cli -> cli_fmt;
+        cli -> cli_docs;
+        cli -> cli_repl;
+        cli -> cli_tools;
+    }
+
+    subgraph cluster_repl {
+        label="REPL Interactivo";
+        style=rounded;
+
+        repl [label="REPL de SUMA", shape=box];
+
+        repl_expr [label="Evaluar expresiones\ninline"];
+        repl_query [label="Queries a modelos\n(model.inspect, model.predict)"];
+        repl_debug [label="Debugging conceptual\n(print AST, print IR)"];
+        repl_define [label="Definir modelos al vuelo\nlet M = Model {...}"];
+        repl_load [label="Cargar módulos\n:load archivo.suma"];
+
+        repl -> repl_expr;
+        repl -> repl_query;
+        repl -> repl_debug;
+        repl -> repl_define;
+        repl -> repl_load;
+    }
+
+    subgraph cluster_codex {
+        label="Codex (Parser + Engine)";
+        style=rounded;
+        codex [label="Codex"];
+    }
+
+    subgraph cluster_core {
+        label="Core (Ejecución y Modelos)";
+        style=rounded;
+        core [label="Core"];
+    }
+
+    /* Flujos */
+    user -> cli;
+    cli_repl -> repl;
+
+    cli_run -> codex;
+    cli_compile -> codex;
+    cli_fmt -> codex;
+    repl -> codex;
+
+    codex -> core;
+}

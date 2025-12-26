@@ -4,7 +4,7 @@ WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 optimize_block = { SOI  ~ objective ~ constraints_section ~ EOI }
 
 // El header opcional con nombre
-optimize_header = { "optimize" ~ string_lit }
+optimize_header = { "optimization" ~ string_lit }
 
 // Objetivo
 objective = { type_obj ~ ":" ~ expression }
