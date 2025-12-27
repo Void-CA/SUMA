@@ -1,4 +1,4 @@
-# 🌐 SUMA — Sistema Universitario de Métodos Académicos
+# 🌐 SUMA — Sistema Unificacion de Métodos Académicos
 
 > **Ecosistema modular para modelar, aprender y ejecutar métodos académicos de forma rigurosa, declarativa y reproducible.**
 
