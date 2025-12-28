@@ -14,6 +14,8 @@ pub mod error;
 pub mod probability;
 pub mod linear_algebra;
 
+pub mod symbolics;
+
 // Re-export para fácil acceso
 pub use boolean_algebra::{BooleanExpr, TruthTable};
 pub use conversions::{NumberConverter};
