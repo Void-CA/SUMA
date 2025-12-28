@@ -21,13 +21,7 @@ pub trait Scalar:
     Mul<Output = Self> + 
     Div<Output = Self> + 
     Neg<Output = Self> + 
-    Zero + One 
-{}
-
-// Implementación automática: Si cumple los requisitos, es un Scalar.
-impl<T> Scalar for T 
-where 
-    T: Clone + Debug + Display + 
-       Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Neg<Output = T> + 
-       Zero + One 
-{}
+    Zero + One + PartialEq
+{
+    fn is_approx(&self, other: &Self) -> bool;
+}

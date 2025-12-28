@@ -36,4 +36,18 @@ where
         let data = vec![T::zero(); rows * cols]; 
         Self { data, rows, cols }
     }
+    
+    pub fn is_approx(&self, other: &DenseMatrix<T>) -> bool {
+        // 1. Si las dimensiones son distintas, imposible que sean iguales
+        if self.rows != other.rows || self.cols != other.cols {
+            return false;
+        }
+
+        // 2. Comparamos elemento a elemento
+        // Usamos iteradores (zip) para recorrer ambos vectores simultáneamente.
+        // .all() devuelve true solo si TODOS los pares cumplen la condición.
+        self.data.iter()
+            .zip(other.data.iter())
+            .all(|(val_self, val_other)| val_self.is_approx(val_other))
+    }
 }
