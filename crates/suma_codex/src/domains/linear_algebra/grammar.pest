@@ -1,0 +1,32 @@
+// 1. Espacios en blanco (Ignorados implícitamente)
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
+// Regla principal
+linear_algebra_block = { SOI ~ stmt* ~ EOI }
+
+stmt = { assignment | expr_stmt }
+
+assignment = { "let" ~ ident ~ "=" ~ expr }
+expr_stmt  = { expr }
+
+expr    = { term ~ (add_op ~ term)* }
+term    = { factor ~ (mul_op ~ factor)* }
+// Factor es donde fallaba antes porque encontraba "/" en lugar de un número o variable
+factor  = { call | matrix_lit | ident | number | "(" ~ expr ~ ")" }
+
+// Matrices: [1, 2; 3, 4]
+// IMPORTANTE: No usar @ para permitir espacios internos
+matrix_lit = { "[" ~ row ~ (row_sep ~ row)* ~ "]" }
+row        = { expr ~ (col_sep ~ expr)* }
+row_sep    = _{ ";" }
+col_sep    = _{ "," }
+
+call = { ident ~ "(" ~ args? ~ ")" }
+args = { expr ~ ("," ~ expr)* }
+
+add_op  = { "+" | "-" }
+mul_op  = { "*" | "/" }
+ident   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+number  = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }

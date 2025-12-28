@@ -10,6 +10,7 @@ use pest::Parser;
 // Importamos los ASTs concretos para el casting
 use crate::domains::optimization::OptimizationModel;
 use crate::domains::boolean_algebra::BooleanModel;
+use crate::domains::linear_algebra::ast::LinearAlgebraModel; // <--- NUEVO
 
 pub struct CodexEngine {
     // HashMap<NombreDominio, Parser>
@@ -75,26 +76,34 @@ impl CodexEngine {
                         } else if let Some(bool_model) = any_ast.downcast_mut::<BooleanModel>() {
                             bool_model.name = Some(n);
                         }
+                        // 2. INYECTAR EL NOMBRE EN LINEAR ALGEBRA
+                        else if let Some(lin_model) = any_ast.downcast_mut::<LinearAlgebraModel>() { // <--- NUEVO
+                            lin_model.name = Some(n);
+                        }
                     }
                     self.convert_and_store(any_ast, results)
                 }
-                Err(e) => eprintln!("Error en dominio '{}': {}", domain_name, e),
+                Err(e) => {
+                    // Tip: Usar println para ver errores en tests --nocapture
+                    println!("Error en dominio '{}': {}", domain_name, e);
+                },
             }
         } else {
             eprintln!("Advertencia: No hay parser registrado para '{}'", domain_name);
         }
     }
 
-
-
     // 3. Conversión de Tipos (Any -> Enum)
     fn convert_and_store(&self, any_ast: Box<dyn Any>, results: &mut Vec<CodexResult>) {
         if let Some(model) = any_ast.downcast_ref::<OptimizationModel>() {
-            // Nota: Necesitas #[derive(Clone)] en tus ASTs para esto
             results.push(CodexResult::Optimization(model.clone()));
-        } 
+        }
         else if let Some(model) = any_ast.downcast_ref::<BooleanModel>() {
             results.push(CodexResult::Boolean(model.clone()));
+        }
+        // 3. GUARDAR EL RESULTADO DE LINEAR ALGEBRA
+        else if let Some(model) = any_ast.downcast_ref::<LinearAlgebraModel>() { // <--- NUEVO
+            results.push(CodexResult::LinearAlgebra(model.clone()));
         }
     }
 }

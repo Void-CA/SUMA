@@ -1,6 +1,6 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-// Un bloque de optimización completo (tu 'problem')
+// Un bloque de optimización completo
 optimize_block = { SOI  ~ objective ~ constraints_section ~ EOI }
 
 // El header opcional con nombre

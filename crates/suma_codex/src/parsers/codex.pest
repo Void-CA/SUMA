@@ -5,6 +5,8 @@ program = _{ SOI ~ stmt* ~ EOI }
 
 stmt = { global_assignment | domain_block }
 
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
 global_assignment = { "let" ~ ident ~ "=" ~ number ~ ";" }
 
 // Esto detecta: optimization "algo" { ... }

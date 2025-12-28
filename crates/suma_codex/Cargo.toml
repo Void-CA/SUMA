@@ -11,7 +11,7 @@ path = "src/lib.rs"
 pest = "2.8.4"
 pest_derive = "2.8.4"
 serde = { version = "1.0", features = ["derive"] }
-suma_core = "0.1.18"
+suma_core = { path = "../suma_core" }
 
 [dev-dependencies]
 insta = { version = "1.39", features = ["yaml"] }
