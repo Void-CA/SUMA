@@ -1,39 +1,40 @@
 use serde::Serialize;
 
-// 1. El Modelo Raíz (Equivalente a BooleanModel)
+// 1. El Modelo Raíz (Lo que el Parser devuelve)
 #[derive(Debug, Serialize, Clone)]
 pub struct LinearAlgebraModel {
-    pub name: Option<String>,
-    // En AL, un "programa" es una lista de instrucciones secuenciales
-    pub statements: Vec<LinAlgStmt>,
+    pub name: Option<String>, // Nombre del bloque contenedor (ej: "Tarea_1")
+    pub actions: Vec<LinearAlgebraAction>, // Lista de Sistemas o Análisis
 }
 
-// 2. Sentencias (Statements)
+// 2. Las Acciones Posibles
 #[derive(Debug, Serialize, Clone)]
-pub enum LinAlgStmt {
-    Assignment {
-        target: String,
-        value: LinAlgExpr,
-    },
-    Evaluation(LinAlgExpr),
+pub enum LinearAlgebraAction {
+    System(SystemDef),
+    Analysis(AnalysisDef),
 }
 
-// 3. Expresiones (Expressions)
+// 3. Definición de Sistema (Artefacto)
 #[derive(Debug, Serialize, Clone)]
-pub enum LinAlgExpr {
-    Number(f64),
-    Variable(String),
-    // Representación serializable de una matriz [ [1, 2], [3, 4] ]
-    Matrix(Vec<Vec<LinAlgExpr>>),
+pub struct SystemDef {
+    pub name: String,
+    pub matrix_a: Option<MatrixData>,
+    pub vector_b: Option<MatrixData>,
+}
 
-    BinaryOp {
-        op: String, // "+", "-", "*"
-        lhs: Box<LinAlgExpr>, // Renombrado a lhs/rhs para consistencia con BoolExpr
-        rhs: Box<LinAlgExpr>,
-    },
+// 4. Definición de Análisis (Query)
+#[derive(Debug, Serialize, Clone)]
+pub struct AnalysisDef {
+    pub name: String,
+    pub target: String,
+    pub calculate: Vec<String>,
+    pub export: Vec<(String, String)>, // (Propiedad -> Variable)
+}
 
-    Call {
-        function: String,
-        args: Vec<LinAlgExpr>,
-    },
+// 5. Estructura de Datos Matriciales
+#[derive(Debug, Serialize, Clone)]
+pub struct MatrixData {
+    pub rows: usize,
+    pub cols: usize,
+    pub data: Vec<f64>,
 }

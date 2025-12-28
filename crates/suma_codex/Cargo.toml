@@ -8,6 +8,7 @@ name = "suma_codex"
 path = "src/lib.rs" 
 
 [dependencies]
+colored = "3.0.0"
 pest = "2.8.4"
 pest_derive = "2.8.4"
 serde = { version = "1.0", features = ["derive"] }

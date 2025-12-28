@@ -1,15 +1,20 @@
-// src/engine/executor.rs
 use crate::ast::CodexResult;
+// Importamos el adaptador
 use crate::engine::adapters::linear_algebra::LinearAlgebraExecutor;
 
 pub struct CodexExecutor;
 
 impl CodexExecutor {
+    // Agregamos el flag 'verbose'
     pub fn execute(results: Vec<CodexResult>, verbose: bool) {
         if verbose {
-            println!(">> Executor: Processing {} blocks...", results.len());
+            println!(">> Executor: Orchestrating {} blocks...", results.len());
         }
 
+        // --- CAMBIO CRÍTICO: PERSISTENCIA ---
+        // Instanciamos el adaptador FUERA del loop.
+        // Esto permite que un bloque defina un sistema y el siguiente lo analice.
+        let mut lin_alg_adapter = LinearAlgebraExecutor::new(verbose);
         for (i, result) in results.iter().enumerate() {
             if verbose {
                 print!("   [{}] ", i + 1);
@@ -21,6 +26,7 @@ impl CodexExecutor {
                         let name = model.name.as_deref().unwrap_or("Unnamed");
                         println!("[OPTIMIZATION] Routing model: '{}'", name);
                     }
+                    // Aquí iría: opt_adapter.execute(model)...
                 },
 
                 CodexResult::Boolean(model) => {
@@ -33,12 +39,11 @@ impl CodexExecutor {
                 CodexResult::LinearAlgebra(model) => {
                     if verbose {
                         let name = model.name.as_deref().unwrap_or("Unnamed");
-                        println!("[LINEAR ALGEBRA] Processing model: '{}'", name);
+                        println!("[LINEAR ALGEBRA] Processing block: '{}'", name);
                     }
 
-                    let mut adapter = LinearAlgebraExecutor::new(verbose);
-
-                    if let Err(e) = adapter.execute(model) {
+                    // Usamos la instancia persistente
+                    if let Err(e) = lin_alg_adapter.execute(model) {
                         eprintln!("   [ERROR] Runtime failure: {}", e);
                     }
                 }
@@ -65,63 +70,101 @@ mod tests {
         engine
     }
 
-    // TEST 1: Verificar que Linear Algebra funciona realmente (Cálculo real)
+    // TEST 1: Ejecución Declarativa Real
     #[test]
-    fn test_linear_algebra_execution_real() {
+    fn test_linear_algebra_execution_declarative() {
         let engine = engine_setup();
+        // Nueva Sintaxis: Definición + Análisis
         let code = r#"
         linear_algebra "Math_Real" {
-            let A = [1, 2; 3, 4]
-            let B = [1, 0; 0, 1]
-            let C = A * B        // Debe dar A
+            // 1. Artefacto
+            LinearSystem "Sistema_1" {
+                coefficients: [1, 2; 3, 4]
+                constants:    [5; 6]
+            }
+            
+            // 2. Query
+            Analysis "Consulta" {
+                target: "Sistema_1"
+                calculate: [ determinant, solution ]
+            }
         }
         "#;
 
-        println!("\n--- TEST: EJECUCIÓN REAL (LINEAR ALG) ---");
+        println!("\n--- TEST: EJECUCIÓN DECLARATIVA ---");
         let results = engine.process_file(code);
-        assert_eq!(results.len(), 1);
+        assert_eq!(results.len(), 1, "Debería haber 1 bloque linear_algebra (que contiene acciones internas)");
 
-        // Esto debe imprimir la matriz resultado en consola
-        CodexExecutor::execute(results);
+        // Ejecutamos con verbose=true para ver los logs en el test
+        CodexExecutor::execute(results, true);
     }
 
-    // TEST 2: Verificar Aislamiento de Scope (Linear Algebra)
+    // TEST 2: Persistencia entre bloques
+    // Probamos que si defino un sistema en un bloque, puedo consultarlo en otro
     #[test]
-    fn test_scope_isolation() {
+    fn test_cross_block_persistence() {
         let engine = engine_setup();
         let code = r#"
-        linear_algebra "Contexto_A" { let x = [10] }
-        linear_algebra "Contexto_B" { let y = x } // Fallará, 'x' no existe aquí
+        linear_algebra "Definicion" {
+            LinearSystem "GlobalSys" {
+                coefficients: [1, 0; 0, 1]
+            }
+        }
+
+        linear_algebra "Consulta" {
+            Analysis "Check" {
+                target: "GlobalSys"
+                calculate: [ determinant ]
+            }
+        }
         "#;
 
-        println!("\n--- TEST: SCOPE ISOLATION ---");
+        println!("\n--- TEST: PERSISTENCIA ENTRE BLOQUES ---");
         let results = engine.process_file(code);
+        assert_eq!(results.len(), 2);
 
-        // Esperamos ver un error en logs para el segundo bloque, pero no un panic del test
-        CodexExecutor::execute(results);
+        CodexExecutor::execute(results, true);
     }
 
-    // TEST 3: Routing Multiparadigma (El más importante para tu solicitud)
-    // Verifica que el Executor maneja la mezcla de dominios funcionales y stubs.
+    // TEST 3: Manejo de Errores (Artefacto no encontrado)
+    #[test]
+    fn test_missing_artifact_error() {
+        let engine = engine_setup();
+        let code = r#"
+        linear_algebra "Fallo" {
+            Analysis "Busqueda_Fantasma" {
+                target: "Sistema_Inexistente"
+                calculate: [ determinant ]
+            }
+        }
+        "#;
+
+        println!("\n--- TEST: ARTEFACTO NO ENCONTRADO ---");
+        let results = engine.process_file(code);
+        
+        // Esto imprimirá un error en consola pero no debe hacer panic
+        CodexExecutor::execute(results, true);
+    }
+
+    // TEST 4: Routing Multiparadigma
     #[test]
     fn test_mixed_domains_routing() {
         let engine = engine_setup();
 
-        // Código que mezcla los 3 lenguajes
         let code = r#"
-        // 1. Stub
+        // 1. Stub Optimización
         optimize "Problema_Produccion" {
             maximize: profit
             constraints: profit > 100
         }
 
-        // 2. Real
+        // 2. Real Álgebra Lineal (Nueva Sintaxis)
         linear_algebra "Calculo_Matrices" {
-            let M = [5, 5; 2, 2]
-            let det = det(M) // Debería dar 0
+            LinearSystem "Sys" { coefficients: [2, 0; 0, 2] }
+            Analysis "Det" { target: "Sys", calculate: [determinant] }
         }
 
-        // 3. Stub
+        // 3. Stub Booleano
         boolean "Circuito_Logico" {
             (A and B) or (not C)
         }
@@ -130,16 +173,13 @@ mod tests {
         println!("\n--- TEST: ROUTING MULTIPARADIGMA ---");
         let results = engine.process_file(code);
 
-        // 1. Validar Parsing (Nivel Codex)
-        assert_eq!(results.len(), 3, "El parser debe separar los 3 bloques correctamente");
+        assert_eq!(results.len(), 3);
+        
+        // Validar orden
+        if !matches!(results[0], CodexResult::Optimization(_)) { panic!("Error orden 1"); }
+        if !matches!(results[1], CodexResult::LinearAlgebra(_)) { panic!("Error orden 2"); }
+        if !matches!(results[2], CodexResult::Boolean(_)) { panic!("Error orden 3"); }
 
-        // Validar Tipos en orden
-        if !matches!(results[0], CodexResult::Optimization(_)) { panic!("Bloque 1 debe ser Optimization"); }
-        if !matches!(results[1], CodexResult::LinearAlgebra(_)) { panic!("Bloque 2 debe ser LinearAlgebra"); }
-        if !matches!(results[2], CodexResult::Boolean(_)) { panic!("Bloque 3 debe ser Boolean"); }
-
-        // 2. Validar Ejecución (Nivel Engine)
-        // Esto imprimirá mensajes de "Aviso: Pendiente" para 1 y 3, y ejecutará el 2.
-        CodexExecutor::execute(results);
+        CodexExecutor::execute(results, true);
     }
 }

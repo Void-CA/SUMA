@@ -1,21 +1,21 @@
-WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+// src/parsers/codex.pest
 
-// El archivo completo
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
+
 program = _{ SOI ~ stmt* ~ EOI }
 
-stmt = { global_assignment | domain_block }
+stmt = { domain_block }
 
-COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+// Estructura General: nombre_dominio "nombre" { contenido }
+// Usamos 'ident' para el keyword del dominio para que sea escalable (soporte 'subnet', 'optimize', etc. sin tocar este archivo)
+domain_block = { ident ~ name? ~ "{" ~ domain_content ~ "}" }
 
-global_assignment = { "let" ~ ident ~ "=" ~ number ~ ";" }
+// MAGIA RECURSIVA:
+// El contenido es: Cualquier cosa que NO sea llave, O un bloque balanceado de llaves.
+domain_content = { ( !("{" | "}") ~ ANY | "{" ~ domain_content ~ "}" )* }
 
-// Esto detecta: optimization "algo" { ... }
-// Y captura el contenido crudo (raw_content) para pasárselo a tu parser específico
-domain_block = { ident ~ (string_lit)? ~ "{" ~ raw_content ~ "}" }
-
-// Captura todo hasta que se cierre la llave (simplificado)
-raw_content = @{ (!"}" ~ ANY)* } 
-
-ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
-number = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
+// Primitivas
+name       = @{ string_lit | ident }
 string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

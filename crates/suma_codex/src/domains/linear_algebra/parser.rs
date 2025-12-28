@@ -1,9 +1,8 @@
 use pest::Parser;
-use pest::iterators::Pair;
 use pest_derive::Parser;
 
 use crate::parsers::traits::{DomainParser, DomainResult};
-use super::ast::{LinearAlgebraModel, LinAlgStmt, LinAlgExpr};
+use super::ast::{LinearAlgebraModel, LinearAlgebraAction, SystemDef, AnalysisDef, MatrixData};
 
 #[derive(Parser)]
 #[grammar = "domains/linear_algebra/grammar.pest"]
@@ -15,120 +14,125 @@ impl DomainParser for LinearAlgebraParser {
     fn domain_name(&self) -> &'static str { "linear_algebra" }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
-        // 1. Parsing crudo con Pest
-        let mut pairs = LinearAlgebraPestGrammar::parse(Rule::linear_algebra_block, content)
-            .map_err(|e| format!("Error de sintaxis en Álgebra Lineal: {}", e))?;
+        // 1. Parsear el contenido del bloque
+        let pairs = LinearAlgebraPestGrammar::parse(Rule::linear_algebra_block, content)
+            .map_err(|e| format!("{}", e))?;
 
-        let mut statements = Vec::new();
+        let mut actions = Vec::new();
 
-        // 2. Recorrer el árbol de Pest
-        if let Some(root) = pairs.next() {
+        // 2. Iterar sobre las definiciones (System o Analysis)
+        if let Some(root) = pairs.clone().next() {
             for pair in root.into_inner() {
                 match pair.as_rule() {
-                    Rule::stmt => {
-                        let inner = pair.into_inner().next().unwrap();
-                        match inner.as_rule() {
-                            Rule::assignment => statements.push(parse_assignment(inner)),
-                            Rule::expr_stmt => {
-                                let expr_pair = inner.into_inner().next().unwrap();
-                                statements.push(LinAlgStmt::Evaluation(parse_expr(expr_pair)));
-                            },
-                            _ => {}
-                        }
-                    }
+                    Rule::system_def => {
+                        actions.push(LinearAlgebraAction::System(parse_system(pair)));
+                    },
+                    Rule::analysis_def => {
+                        actions.push(LinearAlgebraAction::Analysis(parse_analysis(pair)));
+                    },
                     _ => {}
                 }
             }
         }
 
-        // Retornamos el modelo inicializado (name: None se llenará en el Dispatcher)
-        Ok(Box::new(LinearAlgebraModel {
-            name: None,
-            statements
+        // Retornamos el modelo contenedor
+        Ok(Box::new(LinearAlgebraModel { 
+            name: None, // Se llenará en el Dispatcher
+            actions 
         }))
     }
 }
 
-// --- Funciones Auxiliares de Parsing ---
+// --- Helpers de Parsing ---
 
-fn parse_assignment(pair: Pair<Rule>) -> LinAlgStmt {
+fn parse_system(pair: pest::iterators::Pair<Rule>) -> SystemDef {
     let mut inner = pair.into_inner();
-    let ident = inner.next().unwrap().as_str().to_string();
-    let expr_pair = inner.next().unwrap();
-    LinAlgStmt::Assignment {
-        target: ident,
-        value: parse_expr(expr_pair),
+    let name = parse_name(inner.next().unwrap());
+    
+    let mut sys = SystemDef { name, matrix_a: None, vector_b: None };
+
+    for prop in inner {
+        // prop es 'sys_property', su hijo es 'prop_a' o 'prop_b'
+        let specific_prop = prop.into_inner().next().unwrap();
+        
+        match specific_prop.as_rule() {
+            Rule::prop_a => {
+                // Estructura: "coefficients" ~ ":" ~ matrix_lit
+                // El literal se ignora, tomamos el matrix_lit
+                let matrix_pair = specific_prop.into_inner().next().unwrap();
+                sys.matrix_a = Some(parse_matrix(matrix_pair));
+            },
+            Rule::prop_b => {
+                let matrix_pair = specific_prop.into_inner().next().unwrap();
+                sys.vector_b = Some(parse_matrix(matrix_pair));
+            },
+            _ => {}
+        }
     }
+    sys
 }
 
-fn parse_expr(pair: Pair<Rule>) -> LinAlgExpr {
-    // Manejo básico de precedencia: expr -> term -> (add_op term)*
+fn parse_analysis(pair: pest::iterators::Pair<Rule>) -> AnalysisDef {
     let mut inner = pair.into_inner();
-    let mut lhs = parse_term(inner.next().unwrap());
+    let name = parse_name(inner.next().unwrap());
 
-    while let Some(op_pair) = inner.next() {
-        let op = op_pair.as_str().to_string();
-        let rhs = parse_term(inner.next().unwrap());
-        lhs = LinAlgExpr::BinaryOp {
-            lhs: Box::new(lhs),  // Antes left
-            op,
-            rhs: Box::new(rhs),  // Antes right
-        };
+    let mut analysis = AnalysisDef { 
+        name, 
+        target: String::new(), 
+        calculate: Vec::new(), 
+        export: Vec::new() 
+    };
+
+    for prop in inner {
+        // prop es 'query_property', su hijo es prop_target, prop_calculate, etc.
+        let specific_prop = prop.into_inner().next().unwrap();
+
+        match specific_prop.as_rule() {
+            Rule::prop_target => {
+                // Estructura: "target" ~ ":" ~ name_ref
+                let val_pair = specific_prop.into_inner().next().unwrap();
+                analysis.target = parse_name(val_pair);
+            },
+            Rule::prop_calculate => {
+                // Estructura: "calculate" ~ ":" ~ prop_list
+                let list_pair = specific_prop.into_inner().next().unwrap();
+                for item in list_pair.into_inner() {
+                    analysis.calculate.push(item.as_str().to_string());
+                }
+            },
+            Rule::prop_export => {
+                let map_pair = specific_prop.into_inner().next().unwrap();
+                for item in map_pair.into_inner() {
+                    let mut parts = item.into_inner();
+                    let prop = parts.next().unwrap().as_str().to_string();
+                    let var = parts.next().unwrap().as_str().to_string();
+                    analysis.export.push((prop, var));
+                }
+            },
+            _ => {}
+        }
     }
-    lhs
+    analysis
 }
 
-fn parse_term(pair: Pair<Rule>) -> LinAlgExpr {
-    // term -> factor -> (mul_op factor)*
-    let mut inner = pair.into_inner();
-    let mut lhs = parse_factor(inner.next().unwrap());
+fn parse_matrix(pair: pest::iterators::Pair<Rule>) -> MatrixData {
+    let mut data = Vec::new();
+    let mut rows = 0;
+    let mut cols = 0;
 
-    while let Some(op_pair) = inner.next() {
-        let op = op_pair.as_str().to_string();
-        let rhs = parse_factor(inner.next().unwrap());
-        lhs = LinAlgExpr::BinaryOp {
-            lhs: Box::new(lhs),  // Antes left
-            op,
-            rhs: Box::new(rhs),  // Antes right
-        };
-    }
-    lhs
-}
-
-fn parse_factor(pair: Pair<Rule>) -> LinAlgExpr {
-    let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::number => LinAlgExpr::Number(inner.as_str().parse().unwrap_or(0.0)),
-        Rule::ident => LinAlgExpr::Variable(inner.as_str().to_string()),
-        Rule::matrix_lit => parse_matrix(inner),
-        Rule::call => parse_call(inner),
-        Rule::expr => parse_expr(inner), // Paréntesis: recursión indirecta
-        _ => unreachable!("Factor desconocido en gramática: {:?}", inner.as_rule()),
-    }
-}
-
-fn parse_matrix(pair: Pair<Rule>) -> LinAlgExpr {
-    let mut rows = Vec::new();
     for row_pair in pair.into_inner() {
-        let mut row_exprs = Vec::new();
-        for expr_pair in row_pair.into_inner() {
-            row_exprs.push(parse_expr(expr_pair));
+        rows += 1;
+        let mut current_cols = 0;
+        for num_pair in row_pair.into_inner() {
+            let val: f64 = num_pair.as_str().parse().unwrap_or(0.0);
+            data.push(val);
+            current_cols += 1;
         }
-        rows.push(row_exprs);
+        cols = current_cols;
     }
-    LinAlgExpr::Matrix(rows)
+    MatrixData { rows, cols, data }
 }
 
-fn parse_call(pair: Pair<Rule>) -> LinAlgExpr {
-    let mut inner = pair.into_inner();
-    let func_name = inner.next().unwrap().as_str().to_string();
-    let mut args = Vec::new();
-
-    if let Some(args_pair) = inner.next() {
-        for arg in args_pair.into_inner() {
-            args.push(parse_expr(arg));
-        }
-    }
-
-    LinAlgExpr::Call { function: func_name, args }
+fn parse_name(pair: pest::iterators::Pair<Rule>) -> String {
+    pair.as_str().trim_matches('"').to_string()
 }

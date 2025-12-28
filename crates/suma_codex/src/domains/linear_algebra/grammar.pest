@@ -1,32 +1,44 @@
-// 1. Espacios en blanco (Ignorados implícitamente)
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
+// Nueva regla para comas opcionales
+SEP        = _{ ","? } 
 
-COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+linear_algebra_block = { SOI ~ (system_def | analysis_def)* ~ EOI }
 
-// Regla principal
-linear_algebra_block = { SOI ~ stmt* ~ EOI }
+// --- DEFINICIÓN ---
+// Agregamos SEP para permitir { A: [...], b: [...] }
+system_def = { "LinearSystem" ~ name ~ "{" ~ (sys_property ~ SEP)* ~ "}" }
 
-stmt = { assignment | expr_stmt }
+sys_property = { prop_a | prop_b }
+// Reglas nombradas para parsing seguro
+prop_a = { ("coefficients" | "A") ~ ":" ~ matrix_lit }
+prop_b = { ("constants" | "b") ~ ":" ~ matrix_lit }
 
-assignment = { "let" ~ ident ~ "=" ~ expr }
-expr_stmt  = { expr }
+// --- QUERY ---
+// Agregamos SEP y reglas nombradas
+analysis_def = { "Analysis" ~ name ~ "{" ~ (query_property ~ SEP)* ~ "}" }
 
-expr    = { term ~ (add_op ~ term)* }
-term    = { factor ~ (mul_op ~ factor)* }
-// Factor es donde fallaba antes porque encontraba "/" en lugar de un número o variable
-factor  = { call | matrix_lit | ident | number | "(" ~ expr ~ ")" }
+query_property = { prop_target | prop_calculate | prop_export }
 
-// Matrices: [1, 2; 3, 4]
-// IMPORTANTE: No usar @ para permitir espacios internos
+prop_target    = { "target"    ~ ":" ~ name_ref }
+prop_calculate = { "calculate" ~ ":" ~ prop_list }
+prop_export    = { "export"    ~ ":" ~ export_map }
+
+// --- PRIMITIVAS ---
+prop_list   = { "[" ~ math_prop ~ ("," ~ math_prop)* ~ "]" }
+math_prop   = { "determinant" | "solution" | "inverse" | "rank" | "trace" }
+
+export_map  = { "{" ~ export_item ~ ("," ~ export_item)* ~ "}" }
+export_item = { math_prop ~ "->" ~ ident }
+
+name     = @{ string_lit | ident }
+name_ref = @{ string_lit | ident } 
+
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
 matrix_lit = { "[" ~ row ~ (row_sep ~ row)* ~ "]" }
-row        = { expr ~ (col_sep ~ expr)* }
+row        = { number ~ (col_sep ~ number)* }
 row_sep    = _{ ";" }
 col_sep    = _{ "," }
-
-call = { ident ~ "(" ~ args? ~ ")" }
-args = { expr ~ ("," ~ expr)* }
-
-add_op  = { "+" | "-" }
-mul_op  = { "*" | "/" }
-ident   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
-number  = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
+number     = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
