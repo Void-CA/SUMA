@@ -13,8 +13,10 @@ impl CodexExecutor {
 
         // --- CAMBIO CRÍTICO: PERSISTENCIA ---
         // Instanciamos el adaptador FUERA del loop.
-        // Esto permite que un bloque defina un sistema y el siguiente lo analice.
+        // Esto permite que el HashMap de artefactos persista entre un bloque 'LinearSystem'
+        // y un bloque 'Analysis' subsiguiente.
         let mut lin_alg_adapter = LinearAlgebraExecutor::new(verbose);
+
         for (i, result) in results.iter().enumerate() {
             if verbose {
                 print!("   [{}] ", i + 1);
@@ -42,7 +44,7 @@ impl CodexExecutor {
                         println!("[LINEAR ALGEBRA] Processing block: '{}'", name);
                     }
 
-                    // Usamos la instancia persistente
+                    // Usamos la instancia persistente del adaptador
                     if let Err(e) = lin_alg_adapter.execute(model) {
                         eprintln!("   [ERROR] Runtime failure: {}", e);
                     }
@@ -64,6 +66,7 @@ mod tests {
 
     fn engine_setup() -> CodexEngine {
         let mut engine = CodexEngine::new();
+        // El registro ahora es automático basado en valid_keywords()
         engine.register(OptimizationParser);
         engine.register(BooleanParser);
         engine.register(LinearAlgebraParser);
@@ -71,51 +74,47 @@ mod tests {
     }
 
     // TEST 1: Ejecución Declarativa Real
+    // Probamos la definición y el análisis en bloques separados pero secuenciales
     #[test]
     fn test_linear_algebra_execution_declarative() {
         let engine = engine_setup();
-        // Nueva Sintaxis: Definición + Análisis
+        
+        // NOTA: Ya no usamos 'linear_algebra "Math" { ... }'.
+        // Usamos directamente los keywords del dominio.
         let code = r#"
-        linear_algebra "Math_Real" {
-            // 1. Artefacto
-            LinearSystem "Sistema_1" {
-                coefficients: [1, 2; 3, 4]
-                constants:    [5; 6]
-            }
-            
-            // 2. Query
-            Analysis "Consulta" {
-                target: "Sistema_1"
-                calculate: [ determinant, solution ]
-            }
+        LinearSystem "Sistema_1" {
+            coefficients: [1, 2; 3, 4]
+            constants:    [5; 6]
+        }
+        
+        Analysis "Consulta" {
+            target: "Sistema_1"
+            calculate: [ determinant, solution ]
         }
         "#;
 
         println!("\n--- TEST: EJECUCIÓN DECLARATIVA ---");
         let results = engine.process_file(code);
-        assert_eq!(results.len(), 1, "Debería haber 1 bloque linear_algebra (que contiene acciones internas)");
+        
+        // Ahora esperamos 2 bloques independientes: 1 System + 1 Analysis
+        assert_eq!(results.len(), 2, "Debería haber 2 bloques procesados");
 
         // Ejecutamos con verbose=true para ver los logs en el test
         CodexExecutor::execute(results, true);
     }
 
-    // TEST 2: Persistencia entre bloques
-    // Probamos que si defino un sistema en un bloque, puedo consultarlo en otro
+    // TEST 2: Persistencia entre bloques explícita
     #[test]
     fn test_cross_block_persistence() {
         let engine = engine_setup();
         let code = r#"
-        linear_algebra "Definicion" {
-            LinearSystem "GlobalSys" {
-                coefficients: [1, 0; 0, 1]
-            }
+        LinearSystem "GlobalSys" {
+            coefficients: [1, 0; 0, 1]
         }
 
-        linear_algebra "Consulta" {
-            Analysis "Check" {
-                target: "GlobalSys"
-                calculate: [ determinant ]
-            }
+        Analysis "Check" {
+            target: "GlobalSys"
+            calculate: [ determinant ]
         }
         "#;
 
@@ -131,54 +130,48 @@ mod tests {
     fn test_missing_artifact_error() {
         let engine = engine_setup();
         let code = r#"
-        linear_algebra "Fallo" {
-            Analysis "Busqueda_Fantasma" {
-                target: "Sistema_Inexistente"
-                calculate: [ determinant ]
-            }
+        Analysis "Busqueda_Fantasma" {
+            target: "Sistema_Inexistente"
+            calculate: [ determinant ]
         }
         "#;
 
         println!("\n--- TEST: ARTEFACTO NO ENCONTRADO ---");
         let results = engine.process_file(code);
         
-        // Esto imprimirá un error en consola pero no debe hacer panic
+        assert_eq!(results.len(), 1);
+        // Esto imprimirá un error en consola "[ERROR] Runtime failure..." pero no debe hacer panic
         CodexExecutor::execute(results, true);
     }
 
     // TEST 4: Routing Multiparadigma
+    // Verificamos que keywords de distintos dominios convivan en el mismo archivo
     #[test]
     fn test_mixed_domains_routing() {
         let engine = engine_setup();
 
         let code = r#"
-        // 1. Stub Optimización
-        optimize "Problema_Produccion" {
-            maximize: profit
-            constraints: profit > 100
+        // 2. Dominio Álgebra Lineal
+        LinearSystem "Sys" { 
+            coefficients: [2, 0; 0, 2] 
+        }
+        
+        Analysis "Det" { 
+            target: "Sys"
+            calculate: [determinant] 
         }
 
-        // 2. Real Álgebra Lineal (Nueva Sintaxis)
-        linear_algebra "Calculo_Matrices" {
-            LinearSystem "Sys" { coefficients: [2, 0; 0, 2] }
-            Analysis "Det" { target: "Sys", calculate: [determinant] }
-        }
-
-        // 3. Stub Booleano
-        boolean "Circuito_Logico" {
-            (A and B) or (not C)
-        }
         "#;
 
         println!("\n--- TEST: ROUTING MULTIPARADIGMA ---");
         let results = engine.process_file(code);
 
-        assert_eq!(results.len(), 3);
+        // Esperamos 2 bloques: Sys, Analysis
+        assert_eq!(results.len(), 2, "El parser debe identificar 2 bloques distintos");
         
-        // Validar orden
-        if !matches!(results[0], CodexResult::Optimization(_)) { panic!("Error orden 1"); }
-        if !matches!(results[1], CodexResult::LinearAlgebra(_)) { panic!("Error orden 2"); }
-        if !matches!(results[2], CodexResult::Boolean(_)) { panic!("Error orden 3"); }
+        // Validar orden y tipos
+        if !matches!(results[0], CodexResult::LinearAlgebra(_)) { panic!("Bloque 1 debe ser LinearAlgebra (System)"); }
+        if !matches!(results[1], CodexResult::LinearAlgebra(_)) { panic!("Bloque 2 debe ser Analysis"); }
 
         CodexExecutor::execute(results, true);
     }

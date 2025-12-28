@@ -10,7 +10,11 @@ pub struct OptimizationPestGrammar;
 pub struct OptimizationParser;
 
 impl DomainParser for OptimizationParser {
-    fn domain_name(&self) -> &'static str { "optimize" }
+    fn valid_keywords(&self) -> Vec<&'static str> {
+        vec![
+            "Optimization"
+        ]
+    }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
         let mut pairs = OptimizationPestGrammar::parse(Rule::optimize_block, content)

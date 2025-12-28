@@ -10,7 +10,9 @@ pub struct BooleanPestGrammar;
 pub struct BooleanParser;
 
 impl DomainParser for BooleanParser {
-    fn domain_name(&self) -> &'static str { "boolean" }
+    fn valid_keywords(&self) -> Vec<&'static str> {
+        vec!["Boolean"]
+    }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
         // Parseamos SOLO la expresión interna del bloque

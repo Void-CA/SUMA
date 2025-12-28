@@ -1,13 +1,12 @@
-// src/parsers/traits.rs
+use crate::ast::CodexResult;
+use std::error::Error;
 use std::any::Any;
 
-// Usamos Box<dyn Any> porque cada dominio devuelve un AST totalmente diferente.
-pub type DomainResult = Result<Box<dyn Any>, String>;
+pub type DomainResult = Result<Box<dyn Any>, Box<dyn Error>>;
 
 pub trait DomainParser {
-    // Cada parser debe saber procesar un string y devolver "algo"
-    fn parse_domain(&self, content: &str) -> DomainResult;
+    // CAMBIO: Ahora el parser define una LISTA de palabras clave que acepta
+    fn valid_keywords(&self) -> Vec<&'static str>;
     
-    // Metadatos útiles
-    fn domain_name(&self) -> &'static str;
+    fn parse_domain(&self, content: &str) -> DomainResult;
 }

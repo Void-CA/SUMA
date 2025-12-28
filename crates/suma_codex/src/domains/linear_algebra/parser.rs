@@ -11,7 +11,12 @@ pub struct LinearAlgebraPestGrammar;
 pub struct LinearAlgebraParser;
 
 impl DomainParser for LinearAlgebraParser {
-    fn domain_name(&self) -> &'static str { "linear_algebra" }
+    fn valid_keywords(&self) -> Vec<&'static str> {
+        vec![
+            "LinearSystem", // Definiciones
+            "Analysis"      // Queries
+        ]
+    }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
         // 1. Parsear el contenido del bloque

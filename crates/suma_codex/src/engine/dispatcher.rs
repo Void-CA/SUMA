@@ -1,36 +1,40 @@
 use std::collections::HashMap;
 use std::any::Any;
 
-// Imports internos
 use crate::parsers::traits::DomainParser;
 use crate::parsers::codex_parser::{CodexParser, Rule};
 use crate::ast::CodexResult;
 use pest::Parser;
 
-// Importamos los ASTs concretos
 use crate::domains::optimization::OptimizationModel;
 use crate::domains::boolean_algebra::BooleanModel;
 use crate::domains::linear_algebra::ast::LinearAlgebraModel;
 
 pub struct CodexEngine {
-    registry: HashMap<String, Box<dyn DomainParser>>,
+    parsers: Vec<Box<dyn DomainParser>>,
+    routes: HashMap<String, usize>,
 }
 
 impl CodexEngine {
     pub fn new() -> Self {
         Self {
-            registry: HashMap::new(),
+            parsers: Vec::new(),
+            routes: HashMap::new(),
         }
     }
 
     pub fn register<T: DomainParser + 'static>(&mut self, parser: T) {
-        self.registry.insert(parser.domain_name().to_string(), Box::new(parser));
+        let index = self.parsers.len();
+        let keywords = parser.valid_keywords();
+        for kw in keywords {
+            self.routes.insert(kw.to_string(), index);
+        }
+        self.parsers.push(Box::new(parser));
     }
 
     pub fn process_file(&self, content: &str) -> Vec<CodexResult> {
         let mut results = Vec::new();
 
-        // 1. Parsing Global
         let pairs = match CodexParser::parse(Rule::program, content) {
             Ok(p) => p,
             Err(e) => {
@@ -41,7 +45,6 @@ impl CodexEngine {
 
         for pair in pairs {
             for inner in pair.into_inner() {
-                // Buscamos 'domain_block' según la regla actualizada
                 if let Rule::domain_block = inner.as_rule() {
                     self.handle_domain_block(inner, &mut results);
                 }
@@ -51,62 +54,31 @@ impl CodexEngine {
     }
 
     fn handle_domain_block(&self, pair: pest::iterators::Pair<Rule>, results: &mut Vec<CodexResult>) {
-        let mut parts = pair.into_inner();
+        // 1. CAPTURAR EL TEXTO COMPLETO (Header + Contenido)
+        // Esto es vital: pasamos 'LinearSystem "X" { ... }' intacto al parser.
+        let full_text = pair.as_str(); 
         
-        // 1. Identificador del dominio (ej: "linear_algebra")
-        // La gramática es: ident ~ name? ~ "{" ~ domain_content ~ "}"
-        let domain_name = parts.next().unwrap().as_str();
+        // 2. IDENTIFICAR LA KEYWORD PARA EL RUTEO
+        // Clonamos el par para navegarlo sin consumir el original (aunque aquí ya tenemos full_text)
+        let mut parts = pair.clone().into_inner();
+        let keyword = parts.next().unwrap().as_str();
 
-        // 2. Lógica para detectar si hay Nombre o directo Contenido
-        let next_pair = parts.next().unwrap();
-        
-        let (name, raw_content) = match next_pair.as_rule() {
-            Rule::name => {
-                // CASO A: Hay nombre (ej: "Math_Real")
-                // Quitamos comillas si es string_lit, o raw si es ident
-                let n = next_pair.as_str().trim_matches('"').to_string();
-                
-                // El siguiente nodo OBLIGATORIAMENTE es el contenido
-                let content_pair = parts.next().unwrap();
-                (Some(n), content_pair.as_str())
-            },
-            Rule::domain_content => {
-                // CASO B: No hay nombre, pasamos directo al contenido
-                (None, next_pair.as_str())
-            },
-            _ => {
-                // Caso defensivo
-                (None, "")
-            }
-        };
-
-        // 3. Dispatch al Parser Específico
-        if let Some(parser) = self.registry.get(domain_name) {
-            match parser.parse_domain(raw_content) {
-                Ok(mut any_ast) => {
-                    // Inyectar el nombre global al modelo si existe
-                    if let Some(n) = name {
-                        if let Some(opt_model) = any_ast.downcast_mut::<OptimizationModel>() {
-                            opt_model.name = Some(n);
-                        } else if let Some(bool_model) = any_ast.downcast_mut::<BooleanModel>() {
-                            bool_model.name = Some(n);
-                        } else if let Some(lin_model) = any_ast.downcast_mut::<LinearAlgebraModel>() {
-                            lin_model.name = Some(n);
-                        }
-                    }
+        // 3. RUTEO
+        if let Some(&index) = self.routes.get(keyword) {
+            let parser = &self.parsers[index];
+            
+            // PASAMOS EL TEXTO COMPLETO
+            match parser.parse_domain(full_text) { 
+                Ok(any_ast) => {
                     self.convert_and_store(any_ast, results)
                 }
-                Err(e) => {
-                    // Importante: println para ver el error en tests --nocapture
-                    println!("Error en dominio '{}': {}", domain_name, e);
-                },
+                Err(e) => println!("Error en bloque '{}': {}", keyword, e),
             }
         } else {
-            eprintln!("Advertencia: No hay parser registrado para '{}'", domain_name);
+            eprintln!("Advertencia: Palabra clave desconocida '{}'.", keyword);
         }
     }
 
-    // 4. Conversión y Almacenamiento
     fn convert_and_store(&self, any_ast: Box<dyn Any>, results: &mut Vec<CodexResult>) {
         if let Some(model) = any_ast.downcast_ref::<OptimizationModel>() {
             results.push(CodexResult::Optimization(model.clone()));
