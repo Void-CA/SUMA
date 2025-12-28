@@ -1,0 +1,20 @@
+// demo.suma
+
+linear_algebra "Demo_Matrices" {
+    // Definimos una matriz 2x2
+    let A = [4, 7; 2, 6]
+
+    // Calculamos su determinante
+    let d = det(A)
+
+    // Calculamos su inversa
+    let B = inv(A)
+
+    // Verificamos: A * Inversa debe ser la Identidad
+    let I = A * B
+}
+
+optimize "Futuro_Modulo" {
+    maximize: ganancia
+    constraints: ganancia > 1000
+}
