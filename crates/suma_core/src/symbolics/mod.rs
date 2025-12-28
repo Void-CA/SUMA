@@ -5,3 +5,5 @@ pub mod evaluation;
 pub mod error;
 pub mod simplification;
 pub mod substitution;
+
+pub use context::Context;
