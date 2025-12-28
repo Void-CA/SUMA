@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Argument Parser profesional
+clap = { version = "4.4", features = ["derive"] }
+# Manejo de errores limpio
+anyhow = "1.0"
+# Colores para la terminal
+colored = "2.0"
+
+# NUESTRO MOTOR (Asegúrate que la ruta sea correcta)
+suma_codex = { path = "../suma_codex" }
