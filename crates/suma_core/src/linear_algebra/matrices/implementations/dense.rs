@@ -51,3 +51,18 @@ where
             .all(|(val_self, val_other)| val_self.is_approx(val_other))
     }
 }
+
+impl<T> std::fmt::Display for DenseMatrix<T>
+where
+    T: Scalar
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                write!(f, "{}\t", self.get(i, j))?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
