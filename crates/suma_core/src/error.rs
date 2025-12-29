@@ -13,4 +13,7 @@ pub enum SumaError {
 
     #[error(transparent)]
     LinearAlgebra(#[from] crate::linear_algebra::error::LinearAlgebraError),
+
+    #[error(transparent)]
+    Optimization(#[from] crate::optimization::error::OptimizationError),
 }

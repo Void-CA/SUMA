@@ -1,59 +1,40 @@
 use std::collections::HashMap;
-use std::fmt;
-use std::hash::Hash;
+use thiserror::Error; // Necesitas agregar 'thiserror' a las dependencias si no está visible aquí
 
-/// Estado final del solucionador
+// Mantenemos OptimizationStatus y Solution igual...
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OptimizationStatus {
     Optimal,
-    // Suboptimal, // Para cuando implementemos límites de tiempo/iteraciones
 }
 
-/// La estructura de éxito que devuelve el solver
 #[derive(Debug, Clone)]
 pub struct Solution {
     pub status: OptimizationStatus,
     pub objective_value: f64,
-    pub variables: HashMap<String, f64>, // Mapa: "NombreVariable" -> Valor
-
-    pub shadow_prices: HashMap<String, f64>, // Valores duales para cada restricción
+    pub variables: HashMap<String, f64>,
+    pub shadow_prices: HashMap<String, f64>,
 }
 
-/// Los errores específicos de Programación Lineal
-#[derive(Debug, Clone)]
+/// Errores específicos de Programación Lineal usando `thiserror`
+#[derive(Debug, Clone, Error)]
 pub enum LinearOptimizationError {
-    /// El conjunto de restricciones es contradictorio (Región factible vacía)
+    #[error("El problema no tiene solución factible (Infeasible).")]
     Infeasible,
     
-    /// La función objetivo tiende a +/- infinito en la región factible
+    #[error("El problema es no acotado (Unbounded).")]
     Unbounded,
     
-    /// Se alcanzó el límite de iteraciones (posible ciclo o problema numérico)
+    #[error("Límite de iteraciones alcanzado.")]
     MaxIterationsReached,
     
-    /// Error numérico (ej. matriz singular durante pivoteo)
+    #[error("Error numérico: {0}")]
     NumericalError(String),
     
-    /// Error de validación previo al cálculo (ej. dimensiones incorrectas)
+    #[error("Error de validación: {0}")]
     ValidationError(String),
 
-    /// Error al transformar estructuras (ej. NonLinear en un solver lineal)
+    #[error("Expresión no lineal detectada: {0}")]
     NonLinearExpression(String),
 }
 
-// Implementación de Display para logs claros
-impl fmt::Display for LinearOptimizationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LinearOptimizationError::Infeasible => write!(f, "El problema no tiene solución factible."),
-            LinearOptimizationError::Unbounded => write!(f, "El problema es no acotado (solución infinita)."),
-            LinearOptimizationError::MaxIterationsReached => write!(f, "Límite de iteraciones alcanzado."),
-            LinearOptimizationError::NumericalError(msg) => write!(f, "Error numérico: {}", msg),
-            LinearOptimizationError::ValidationError(msg) => write!(f, "Error de validación: {}", msg),
-            LinearOptimizationError::NonLinearExpression(msg) => write!(f, "Expresión no lineal: {}", msg),
-        }
-    }
-}
-
-/// Alias conveniente para el retorno de funciones del solver
 pub type OptimizationResult = Result<Solution, LinearOptimizationError>;
