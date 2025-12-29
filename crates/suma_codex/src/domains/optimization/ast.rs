@@ -12,6 +12,7 @@ pub struct OptimizationBlock {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct OptimizationModel {
+    pub id: String,
     pub direction: OptimizationDirection,
     pub objective: Expr,
     pub constraints: Vec<ConstraintModel>,

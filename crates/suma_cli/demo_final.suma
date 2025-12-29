@@ -17,3 +17,13 @@ query "Produccion_Fabrica" {
     determinant
     solution
 }
+
+Optimization "Maximizar_Produccion" {
+    maximize 5*x + 4*y
+    constraints {
+        2*x + y <= 10
+        x + 3*y <= 20
+        x >= 0
+        y >= 0
+    }
+}

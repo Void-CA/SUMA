@@ -165,11 +165,11 @@ mod tests {
 
     #[test]
     fn test_optimization_pipeline_full() {
-        let mut engine = engine_setup(); // Tu setup que registra parsers
+        let engine = engine_setup(); // Tu setup que registra parsers
         
         // Código Codex de alto nivel
         let code = r#"
-        optimization {
+        Optimization "Maximizar_Producción" {
             maximize 3*x + 5*y
             constraints {
                 x + 2*y <= 20

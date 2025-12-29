@@ -17,7 +17,7 @@ pub struct OptimizationParser;
 impl DomainParser for OptimizationParser {
     fn valid_keywords(&self) -> Vec<&'static str> {
         vec![
-            "optimization" // La palabra clave que activa este parser
+            "Optimization" // La palabra clave que activa este parser
         ]
     }
 
@@ -48,19 +48,27 @@ impl DomainParser for OptimizationParser {
 fn parse_optimization_model(pair: pest::iterators::Pair<Rule>) -> OptimizationModel {
     let mut inner = pair.into_inner();
 
-    // 1. Parsear Header (Siempre es el primer hijo)
-    // header = { direction ~ expression }
+    // 1. Parsear Nombre Opcional
+    // Miramos el siguiente token sin consumirlo (peek) o consumimos si coincide
+    let first_rule = inner.peek().unwrap().as_rule();
+    
+    let name = if first_rule == Rule::model_id {
+        // Consumimos el token 'model_id'
+        let id_pair = inner.next().unwrap();
+        // into_inner para entrar a 'string_lit', as_str, trim comillas
+        Some(id_pair.into_inner().next().unwrap().as_str().trim_matches('"').to_string())
+    } else {
+        None
+    };
+
+    // 2. Header (Ahora será el siguiente token disponible)
     let header_pair = inner.next().unwrap();
     let (direction, objective) = parse_header(header_pair);
 
-    // 2. Parsear Restricciones (Opcional, es el segundo hijo si existe)
+    // 3. Restricciones
     let mut constraints = Vec::new();
-    
     if let Some(const_section) = inner.next() {
-        // constraints_section = { "subject to" ~ "{" ~ constraint+ ~ "}" }
-        // Iteramos sobre los hijos internos saltando la keyword "subject to"
         for const_pair in const_section.into_inner() {
-             // Solo nos interesan las reglas 'constraint'
             if const_pair.as_rule() == Rule::constraint {
                 constraints.push(parse_constraint(const_pair));
             }
@@ -68,6 +76,7 @@ fn parse_optimization_model(pair: pest::iterators::Pair<Rule>) -> OptimizationMo
     }
 
     OptimizationModel {
+        id: name.unwrap_or_else(|| "Unnamed_Model".to_string()), // Guardamos el nombre
         direction,
         objective,
         constraints,
