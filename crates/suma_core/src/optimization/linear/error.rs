@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::hash::Hash;
 
 /// Estado final del solucionador
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,11 +15,13 @@ pub struct Solution {
     pub status: OptimizationStatus,
     pub objective_value: f64,
     pub variables: HashMap<String, f64>, // Mapa: "NombreVariable" -> Valor
+
+    pub shadow_prices: HashMap<String, f64>, // Valores duales para cada restricción
 }
 
 /// Los errores específicos de Programación Lineal
 #[derive(Debug, Clone)]
-pub enum OptimizationError {
+pub enum LinearOptimizationError {
     /// El conjunto de restricciones es contradictorio (Región factible vacía)
     Infeasible,
     
@@ -39,18 +42,18 @@ pub enum OptimizationError {
 }
 
 // Implementación de Display para logs claros
-impl fmt::Display for OptimizationError {
+impl fmt::Display for LinearOptimizationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OptimizationError::Infeasible => write!(f, "El problema no tiene solución factible."),
-            OptimizationError::Unbounded => write!(f, "El problema es no acotado (solución infinita)."),
-            OptimizationError::MaxIterationsReached => write!(f, "Límite de iteraciones alcanzado."),
-            OptimizationError::NumericalError(msg) => write!(f, "Error numérico: {}", msg),
-            OptimizationError::ValidationError(msg) => write!(f, "Error de validación: {}", msg),
-            OptimizationError::NonLinearExpression(msg) => write!(f, "Expresión no lineal: {}", msg),
+            LinearOptimizationError::Infeasible => write!(f, "El problema no tiene solución factible."),
+            LinearOptimizationError::Unbounded => write!(f, "El problema es no acotado (solución infinita)."),
+            LinearOptimizationError::MaxIterationsReached => write!(f, "Límite de iteraciones alcanzado."),
+            LinearOptimizationError::NumericalError(msg) => write!(f, "Error numérico: {}", msg),
+            LinearOptimizationError::ValidationError(msg) => write!(f, "Error de validación: {}", msg),
+            LinearOptimizationError::NonLinearExpression(msg) => write!(f, "Expresión no lineal: {}", msg),
         }
     }
 }
 
 /// Alias conveniente para el retorno de funciones del solver
-pub type OptimizationResult = Result<Solution, OptimizationError>;
+pub type OptimizationResult = Result<Solution, LinearOptimizationError>;
