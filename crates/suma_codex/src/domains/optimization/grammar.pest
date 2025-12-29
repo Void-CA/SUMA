@@ -1,28 +1,29 @@
+// Reglas vitales del sistema
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
 
-// Un bloque de optimización completo
-optimize_block = { SOI  ~ objective ~ constraints_section ~ EOI }
+// Entrada principal
+optimization_block = { "optimization" ~ "{" ~ header ~ constraints_section? ~ "}" }
 
-// El header opcional con nombre
-optimize_header = { "optimization" ~ string_lit }
-
-// Objetivo
-objective = { type_obj ~ ":" ~ expression }
-
-type_obj  = { "maximize" | "minimize" }
+// Cabecera: Dirección y Función Objetivo
+header = { direction ~ expression }
+direction = { "maximize" | "minimize" | "max" | "min" }
 
 // Restricciones
-constraints_section = { "constraints" ~ ":" ~ constraints }
-constraints = { constraint+ }
-constraint  = { expression ~ operator ~ expression }
+constraints_section = { "constraints" ~ "{" ~ constraint+ ~ "}" }
+constraint = { expression ~ relation ~ expression }
+relation = { "<=" | ">=" | "=" | "<" | ">" }
 
-// --- Matemáticas ---
-operator   = { "<=" | ">=" | "==" | "<" | ">" }
+// --- Aritmética (Mapeable a Expr) ---
+// Usamos reglas estándar para precedencia
 expression = { term ~ (add_op ~ term)* }
 term       = { factor ~ (mul_op ~ factor)* }
-factor     = { number | ident | "(" ~ expression ~ ")" }
-add_op     = { "+" | "-" }
-mul_op     = { "*" | "/" }
-ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
-number     = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }
-string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" | "'" ~ (!"'" ~ ANY)* ~ "'" }
+factor     = { neg_op? ~ atom }
+atom       = _{ number | variable | "(" ~ expression ~ ")" }
+
+add_op = { "+" | "-" }
+mul_op = { "*" | "/" }
+neg_op = { "-" }
+
+number = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+variable = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }

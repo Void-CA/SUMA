@@ -1,7 +1,12 @@
 use pest::Parser;
 use pest_derive::Parser;
+
 use crate::parsers::traits::{DomainParser, DomainResult};
-use super::ast::*; // <--- IMPORTANTE: Importamos todo del archivo ast.rs
+// Importamos el AST del dominio y la Expresión simbólica compartida
+use super::ast::{
+    OptimizationBlock, OptimizationModel, OptimizationDirection, ConstraintModel
+};
+use suma_core::symbolics::ast::{Expr, var}; // Asumiendo que 'var' es tu constructor helper
 
 #[derive(Parser)]
 #[grammar = "domains/optimization/grammar.pest"]
@@ -12,148 +17,161 @@ pub struct OptimizationParser;
 impl DomainParser for OptimizationParser {
     fn valid_keywords(&self) -> Vec<&'static str> {
         vec![
-            "Optimization"
+            "optimization" // La palabra clave que activa este parser
         ]
     }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
-        let mut pairs = OptimizationPestGrammar::parse(Rule::optimize_block, content)
-            .map_err(|e| format!("Error parsing optimization: {}", e))?;
+        // 1. Parsing inicial con Pest
+        let pairs = OptimizationPestGrammar::parse(Rule::optimization_block, content)
+            .map_err(|e| format!("{}", e))?;
 
-        let mut model = OptimizationModel {
-            name: None,
-            obj_type: OptType::Maximize,
-            obj_expr: Expr::Number(0.0),
-            constraints: Vec::new(),
-        };
+        // 2. Extraer el bloque raíz
+        // La gramática es: "optimization" ~ "{" ~ header ~ constraints? ~ "}"
+        if let Some(root) = pairs.clone().next() {
+            let model = parse_optimization_model(root);
+            
+            // Retornamos el bloque contenedor (Wrapper para el Engine)
+            Ok(Box::new(OptimizationBlock { 
+                model 
+            }))
+        } else {
+            Err("No se encontró un bloque de optimización válido".to_string().into())
+        }
+    }
+}
 
-        let block_pair = pairs.next().unwrap(); // optimize_block
+// ==========================================
+// HELPERS DE PARSING (Mapeo Pest -> AST)
+// ==========================================
 
-        for inner in block_pair.into_inner() {
-            match inner.as_rule() {
-                Rule::objective => process_objective(inner, &mut model),
-                Rule::constraints_section => process_constraints_section(inner, &mut model),
-                _ => {}
+fn parse_optimization_model(pair: pest::iterators::Pair<Rule>) -> OptimizationModel {
+    let mut inner = pair.into_inner();
+
+    // 1. Parsear Header (Siempre es el primer hijo)
+    // header = { direction ~ expression }
+    let header_pair = inner.next().unwrap();
+    let (direction, objective) = parse_header(header_pair);
+
+    // 2. Parsear Restricciones (Opcional, es el segundo hijo si existe)
+    let mut constraints = Vec::new();
+    
+    if let Some(const_section) = inner.next() {
+        // constraints_section = { "subject to" ~ "{" ~ constraint+ ~ "}" }
+        // Iteramos sobre los hijos internos saltando la keyword "subject to"
+        for const_pair in const_section.into_inner() {
+             // Solo nos interesan las reglas 'constraint'
+            if const_pair.as_rule() == Rule::constraint {
+                constraints.push(parse_constraint(const_pair));
             }
         }
+    }
 
-        Ok(Box::new(model))
+    OptimizationModel {
+        direction,
+        objective,
+        constraints,
     }
 }
 
-// --- Helpers ---
-
-// Parsea: term + term - term ...
-fn build_expression(pair: pest::iterators::Pair<Rule>) -> Expr {
+fn parse_header(pair: pest::iterators::Pair<Rule>) -> (OptimizationDirection, Expr) {
     let mut inner = pair.into_inner();
     
-    // 1. Obtener el primer término (la izquierda)
-    let mut lhs = build_term(inner.next().unwrap());
+    // a. Dirección
+    let dir_str = inner.next().unwrap().as_str();
+    let direction = match dir_str {
+        "maximize" | "max" => OptimizationDirection::Maximize,
+        "minimize" | "min" => OptimizationDirection::Minimize,
+        _ => panic!("Dirección desconocida en parser: {}", dir_str),
+    };
 
-    // 2. Mientras haya más pares (operador, término), seguimos anidando
-    while let Some(op_pair) = inner.next() {
-        let op = match op_pair.as_str() {
-            "+" => Op::Add,
-            "-" => Op::Sub,
-            _ => unreachable!(),
-        };
-        
-        let rhs_pair = inner.next().unwrap();
-        let rhs = build_term(rhs_pair);
+    // b. Función Objetivo
+    let expr_pair = inner.next().unwrap();
+    let objective = parse_expr(expr_pair);
 
-        // Envolvemos lo que llevamos en una nueva operación
-        lhs = Expr::BinaryOp {
-            op,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        };
-    }
-    lhs
+    (direction, objective)
 }
 
-// Parsea: factor * factor / factor ...
-fn build_term(pair: pest::iterators::Pair<Rule>) -> Expr {
+fn parse_constraint(pair: pest::iterators::Pair<Rule>) -> ConstraintModel {
     let mut inner = pair.into_inner();
-    let mut lhs = build_factor(inner.next().unwrap());
 
-    while let Some(op_pair) = inner.next() {
-        let op = match op_pair.as_str() {
-            "*" => Op::Mul,
-            "/" => Op::Div,
-            _ => unreachable!(),
-        };
+    // Estructura: expression ~ relation ~ expression
+    let left = parse_expr(inner.next().unwrap());
+    let relation = inner.next().unwrap().as_str().to_string();
+    let right = parse_expr(inner.next().unwrap());
 
-        let rhs = build_factor(inner.next().unwrap());
-        
-        lhs = Expr::BinaryOp {
-            op,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        };
+    ConstraintModel {
+        left,
+        relation,
+        right,
     }
-    lhs
 }
 
-// Parsea: número, variable, o ( expresión )
-fn build_factor(pair: pest::iterators::Pair<Rule>) -> Expr {
-    let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::number => {
-            let val = inner.as_str().parse::<f64>().unwrap_or(0.0);
-            Expr::Number(val)
-        },
-        Rule::ident => {
-            Expr::Variable(inner.as_str().to_string())
-        },
+// ==========================================
+// PARSING RECURSIVO DE EXPRESIONES
+// ==========================================
+// Transforma la gramática jerárquica (Expr -> Term -> Factor) en el árbol AST
+
+fn parse_expr(pair: pest::iterators::Pair<Rule>) -> Expr {
+    // La regla 'expression' maneja sumas y restas: term ~ (add_op ~ term)*
+    match pair.as_rule() {
         Rule::expression => {
-            // Paréntesis: volvemos a llamar a build_expression recursivamente
-            build_expression(inner)
-        },
-        _ => unreachable!("Factor desconocido: {:?}", inner.as_rule()),
-    }
-}
+            let mut inner = pair.into_inner();
+            let mut lhs = parse_expr(inner.next().unwrap()); // Primer término
 
-// Helper para la sección de objetivo
-fn process_objective(pair: pest::iterators::Pair<Rule>, model: &mut OptimizationModel) {
-    // Ya sabemos que 'pair' es Rule::objective, iteramos sus hijos
-    for field in pair.into_inner() {
-        match field.as_rule() {
-            Rule::type_obj => {
-                model.obj_type = match field.as_str() {
-                    "minimize" => OptType::Minimize,
-                    _ => OptType::Maximize,
+            // Mientras haya más pares (operador, término)
+            while let Some(op) = inner.next() {
+                let rhs = parse_expr(inner.next().unwrap());
+                lhs = match op.as_str() {
+                    "+" => Expr::Add(Box::new(lhs), Box::new(rhs)),
+                    "-" => Expr::Sub(Box::new(lhs), Box::new(rhs)),
+                    _ => unreachable!(),
                 };
-            },
-            Rule::expression => {
-                model.obj_expr = build_expression(field);
-            },
-            _ => {}
-        }
+            }
+            lhs
+        },
+        // La regla 'term' maneja multiplicación y división: factor ~ (mul_op ~ factor)*
+        Rule::term => {
+            let mut inner = pair.into_inner();
+            let mut lhs = parse_expr(inner.next().unwrap());
+
+            while let Some(op) = inner.next() {
+                let rhs = parse_expr(inner.next().unwrap());
+                lhs = match op.as_str() {
+                    "*" => Expr::Mul(Box::new(lhs), Box::new(rhs)),
+                    "/" => Expr::Div(Box::new(lhs), Box::new(rhs)),
+                    _ => unreachable!(),
+                };
+            }
+            lhs
+        },
+        // La regla 'factor' maneja unarios, átomos y paréntesis
+        Rule::factor => {
+            let mut inner = pair.into_inner();
+            let first = inner.next().unwrap();
+
+            if first.as_rule() == Rule::neg_op {
+                // Caso unario: "-" ~ atom
+                let atom = inner.next().unwrap();
+                Expr::Neg(Box::new(parse_expr(atom))) // Recursión indirecta
+            } else {
+                // Caso directo: atom
+                parse_expr(first)
+            }
+        },
+        // Caso base: Números
+        Rule::number => {
+            let val: f64 = pair.as_str().parse().unwrap_or(0.0);
+            Expr::Const(val)
+        },
+        // Caso base: Variables
+        Rule::variable => {
+            var(pair.as_str())
+        },
+        // Caso especial: Pest a veces devuelve la regla 'atom' que contiene 'expression' (paréntesis)
+        // atom = _{ number | variable | "(" ~ expression ~ ")" }
+        // Como 'atom' es silencioso (_), recibiremos directamente number, variable o expression.
+        // Si por alguna razón recibimos una expresión anidada aquí, recursamos.
+        _ => parse_expr(pair), 
     }
 }
-
-// Helper para la sección de restricciones
-fn process_constraints_section(pair: pest::iterators::Pair<Rule>, model: &mut OptimizationModel) {
-    // Estructura: constraints_section -> constraints -> constraint
-    // Navegamos hacia abajo
-    for list_node in pair.into_inner() { // Entra a 'constraints' (la lista)
-        for constraint_node in list_node.into_inner() { // Entra a cada 'constraint'
-             // Otra delegación para mantener esto limpio
-             let constraint = build_constraint(constraint_node);
-             model.constraints.push(constraint);
-        }
-    }
-}
-
-// Helper para construir UNA sola restricción
-fn build_constraint(pair: pest::iterators::Pair<Rule>) -> Constraint {
-    let mut parts = pair.into_inner();
-    
-    // Al aislar esto, la lógica se ve mucho más clara:
-    let lhs = build_expression(parts.next().unwrap());
-    let op = parts.next().unwrap().as_str().to_string();
-    let rhs = build_expression(parts.next().unwrap());
-
-    Constraint { lhs, op, rhs }
-}
-

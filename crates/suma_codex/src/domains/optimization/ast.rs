@@ -1,42 +1,38 @@
 use serde::Serialize;
+use suma_core::symbolics::ast::Expr; // Reutilizamos la expresión simbólica
 
-// --- Expresiones Matemáticas ---
-
-#[derive(Debug, Serialize, Clone)]
-pub enum Op {
-    Add, Sub, Mul, Div
+// --- 1. El Bloque Contenedor (Lo que faltaba) ---
+// Este es el struct que el Parser devuelve envuelto en Box<...>
+#[derive(Debug, Clone, Serialize)]
+pub struct OptimizationBlock {
+    pub model: OptimizationModel,
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub enum Expr {
-    Number(f64),
-    Variable(String),
-    BinaryOp {
-        op: Op,
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
-    },
+// --- 2. El Modelo de Datos del Dominio ---
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OptimizationModel {
+    pub direction: OptimizationDirection,
+    pub objective: Expr,
+    pub constraints: Vec<ConstraintModel>,
 }
 
-// --- Estructuras del Modelo ---
-
-#[derive(Debug, Serialize, Clone)]
-pub enum OptType {
+#[derive(Debug, Clone, Serialize)]
+pub enum OptimizationDirection {
     Maximize,
     Minimize,
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub struct Constraint {
-    pub lhs: Expr,
-    pub op: String,
-    pub rhs: Expr,
+#[derive(Debug, Clone, Serialize)]
+pub struct ConstraintModel {
+    pub left: Expr,
+    pub relation: String, // "<=", ">=", "="
+    pub right: Expr,
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub struct OptimizationModel {
-    pub name: Option<String>,
-    pub obj_type: OptType,
-    pub obj_expr: Expr,
-    pub constraints: Vec<Constraint>,
+// Implementación opcional para facilitar la creación en tests
+impl OptimizationBlock {
+    pub fn new(model: OptimizationModel) -> Self {
+        Self { model }
+    }
 }

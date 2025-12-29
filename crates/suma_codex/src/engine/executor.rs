@@ -1,6 +1,7 @@
 use crate::ast::CodexResult;
 // Importamos el adaptador
 use crate::engine::adapters::linear_algebra::LinearAlgebraExecutor;
+use crate::engine::adapters::optimization::OptimizationExecutor;
 // Importamos el contrato de salida
 use crate::outputs::CodexOutput;
 
@@ -24,6 +25,7 @@ impl CodexExecutor {
         // Instanciamos el adaptador FUERA del loop para mantener la memoria
         // (artifacts) entre bloques secuenciales.
         let mut lin_alg_adapter = LinearAlgebraExecutor::new(verbose);
+        let mut opt_adapter = OptimizationExecutor::new(verbose);
 
         for (i, result) in results.iter().enumerate() {
             if verbose {
@@ -31,12 +33,13 @@ impl CodexExecutor {
             }
 
             match result {
-                CodexResult::Optimization(model) => {
-                    if verbose {
-                        let name = model.name.as_deref().unwrap_or("Unnamed");
-                        println!("[OPTIMIZATION] Routing model: '{}'", name);
+                CodexResult::Optimization(block) => {
+                    if verbose { println!("[OPTIMIZATION] Processing block"); }
+                    
+                    // Ejecutamos pasando el observer
+                    if let Err(e) = opt_adapter.execute(block, &mut observer) {
+                         observer("Optimization Error", CodexOutput::Error(format!("{}", e)));
                     }
-                    // TODO: opt_adapter.execute(model, &mut observer)...
                 },
 
                 CodexResult::Boolean(model) => {
@@ -52,10 +55,6 @@ impl CodexExecutor {
                         println!("[LINEAR ALGEBRA] Processing block");
                     }
                     
-                    // CRÍTICO: Pasamos '&mut observer'.
-                    // Como el adaptador espera un genérico F, al pasarle una referencia mutable,
-                    // Rust infiere que el tipo genérico del adaptador es &mut F.
-                    // Esto permite reutilizar el closure en la siguiente iteración del loop.
                     if let Err(e) = lin_alg_adapter.execute(block, &mut observer) {
                         observer("Runtime Error", CodexOutput::Error(e));
                     }
@@ -160,6 +159,37 @@ mod tests {
                 println!("[TEST OK] Error capturado correctamente: {}: {}", alias, msg);
             } else {
                 test_observer(alias, output);
+            }
+        });
+    }
+
+    #[test]
+    fn test_optimization_pipeline_full() {
+        let mut engine = engine_setup(); // Tu setup que registra parsers
+        
+        // Código Codex de alto nivel
+        let code = r#"
+        optimization {
+            maximize 3*x + 5*y
+            constraints {
+                x + 2*y <= 20
+                x <= 10
+            }
+        }
+        "#;
+
+        println!("\n--- TEST: PIPELINE DE OPTIMIZACIÓN ---");
+        let results = engine.process_file(code);
+        
+        CodexExecutor::execute(results, true, |alias, output| {
+            println!("[TEST OUT] {}: {:?}", alias, output);
+            
+            if let CodexOutput::Message(txt) = output {
+                // Verificamos que contenga la solución correcta (550)
+                assert!(txt.contains("550"), "El output debe contener el óptimo 550");
+                assert!(txt.contains("Variables"), "Debe listar variables");
+            } else {
+                panic!("Se esperaba salida de texto, se obtuvo: {:?}", output);
             }
         });
     }
