@@ -4,7 +4,7 @@ use serde::Serialize;
 use crate::domains::optimization::OptimizationModel;
 use crate::domains::boolean_algebra::BooleanModel;
 // Importamos el nuevo modelo serializable
-use crate::domains::linear_algebra::ast::LinearAlgebraModel;
+use crate::domains::linear_algebra::ast::LinearAlgebraBlock;
 
 #[derive(Debug, Serialize, Clone)]
 pub enum CodexResult {
@@ -15,5 +15,5 @@ pub enum CodexResult {
     Boolean(BooleanModel),
 
     // Resultado de Matrices (Gauss-Jordan/Systems)
-    LinearAlgebra(LinearAlgebraModel),
+    LinearAlgebra(LinearAlgebraBlock),
 }

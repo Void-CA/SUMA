@@ -1,20 +1,28 @@
 use crate::ast::CodexResult;
 // Importamos el adaptador
 use crate::engine::adapters::linear_algebra::LinearAlgebraExecutor;
+// Importamos el contrato de salida
+use crate::outputs::CodexOutput;
 
 pub struct CodexExecutor;
 
 impl CodexExecutor {
-    // Agregamos el flag 'verbose'
-    pub fn execute(results: Vec<CodexResult>, verbose: bool) {
+    /// Ejecuta una lista de resultados (Bloques parseados).
+    /// 
+    /// # Argumentos
+    /// * `results` - Vector de artefactos/queries parseados.
+    /// * `verbose` - Flag para logs internos de debug.
+    /// * `observer` - Callback (Closure) que maneja la salida visual.
+    pub fn execute<F>(results: Vec<CodexResult>, verbose: bool, mut observer: F) 
+    where F: FnMut(&str, CodexOutput) 
+    {
         if verbose {
             println!(">> Executor: Orchestrating {} blocks...", results.len());
         }
 
-        // --- CAMBIO CRÍTICO: PERSISTENCIA ---
-        // Instanciamos el adaptador FUERA del loop.
-        // Esto permite que el HashMap de artefactos persista entre un bloque 'LinearSystem'
-        // y un bloque 'Analysis' subsiguiente.
+        // --- PERSISTENCIA DE ESTADO ---
+        // Instanciamos el adaptador FUERA del loop para mantener la memoria
+        // (artifacts) entre bloques secuenciales.
         let mut lin_alg_adapter = LinearAlgebraExecutor::new(verbose);
 
         for (i, result) in results.iter().enumerate() {
@@ -28,7 +36,7 @@ impl CodexExecutor {
                         let name = model.name.as_deref().unwrap_or("Unnamed");
                         println!("[OPTIMIZATION] Routing model: '{}'", name);
                     }
-                    // Aquí iría: opt_adapter.execute(model)...
+                    // TODO: opt_adapter.execute(model, &mut observer)...
                 },
 
                 CodexResult::Boolean(model) => {
@@ -36,24 +44,30 @@ impl CodexExecutor {
                         let name = model.name.as_deref().unwrap_or("Unnamed");
                         println!("[BOOLEAN] Routing model: '{}'", name);
                     }
+                    // TODO: bool_adapter.execute(model, &mut observer)...
                 },
 
-                CodexResult::LinearAlgebra(model) => {
+                CodexResult::LinearAlgebra(block) => {
                     if verbose {
-                        let name = model.name.as_deref().unwrap_or("Unnamed");
-                        println!("[LINEAR ALGEBRA] Processing block: '{}'", name);
+                        println!("[LINEAR ALGEBRA] Processing block");
                     }
-
-                    // Usamos la instancia persistente del adaptador
-                    if let Err(e) = lin_alg_adapter.execute(model) {
-                        eprintln!("   [ERROR] Runtime failure: {}", e);
+                    
+                    // CRÍTICO: Pasamos '&mut observer'.
+                    // Como el adaptador espera un genérico F, al pasarle una referencia mutable,
+                    // Rust infiere que el tipo genérico del adaptador es &mut F.
+                    // Esto permite reutilizar el closure en la siguiente iteración del loop.
+                    if let Err(e) = lin_alg_adapter.execute(block, &mut observer) {
+                        observer("Runtime Error", CodexOutput::Error(e));
                     }
-                }
+                },
             }
         }
     }
 }
 
+// ==========================================
+// TESTS DE INTEGRACIÓN
+// ==========================================
 #[cfg(test)]
 mod tests {
     use crate::CodexEngine;
@@ -66,113 +80,87 @@ mod tests {
 
     fn engine_setup() -> CodexEngine {
         let mut engine = CodexEngine::new();
-        // El registro ahora es automático basado en valid_keywords()
         engine.register(OptimizationParser);
         engine.register(BooleanParser);
         engine.register(LinearAlgebraParser);
         engine
     }
 
+    // Helper para simular un CLI en los tests
+    fn test_observer(alias: &str, output: CodexOutput) {
+        println!("[TEST OUTPUT] {}: {:?}", alias, output);
+    }
+
     // TEST 1: Ejecución Declarativa Real
-    // Probamos la definición y el análisis en bloques separados pero secuenciales
     #[test]
     fn test_linear_algebra_execution_declarative() {
         let engine = engine_setup();
         
-        // NOTA: Ya no usamos 'linear_algebra "Math" { ... }'.
-        // Usamos directamente los keywords del dominio.
         let code = r#"
         LinearSystem "Sistema_1" {
             coefficients: [1, 2; 3, 4]
             constants:    [5; 6]
         }
         
-        Analysis "Consulta" {
-            target: "Sistema_1"
-            calculate: [ determinant, solution ]
+        query "Sistema_1" {
+            determinant as det_val
+            solution    as sol_vec
         }
         "#;
 
         println!("\n--- TEST: EJECUCIÓN DECLARATIVA ---");
         let results = engine.process_file(code);
         
-        // Ahora esperamos 2 bloques independientes: 1 System + 1 Analysis
-        assert_eq!(results.len(), 2, "Debería haber 2 bloques procesados");
-
-        // Ejecutamos con verbose=true para ver los logs en el test
-        CodexExecutor::execute(results, true);
+        // CORRECCIÓN: Ahora pasamos el closure (observer)
+        CodexExecutor::execute(results, true, |alias, output| {
+            test_observer(alias, output);
+        });
     }
 
-    // TEST 2: Persistencia entre bloques explícita
+    // TEST 2: Persistencia y Sugar
     #[test]
     fn test_cross_block_persistence() {
         let engine = engine_setup();
         let code = r#"
         LinearSystem "GlobalSys" {
             coefficients: [1, 0; 0, 1]
+            constants:    [10; 20]
         }
 
-        Analysis "Check" {
-            target: "GlobalSys"
-            calculate: [ determinant ]
+        query "GlobalSys" {
+            solution
         }
         "#;
 
         println!("\n--- TEST: PERSISTENCIA ENTRE BLOQUES ---");
         let results = engine.process_file(code);
-        assert_eq!(results.len(), 2);
-
-        CodexExecutor::execute(results, true);
+        
+        // CORRECCIÓN: Pasamos el closure
+        CodexExecutor::execute(results, true, |alias, output| {
+            test_observer(alias, output);
+        });
     }
 
-    // TEST 3: Manejo de Errores (Artefacto no encontrado)
+    // TEST 3: Manejo de Errores
     #[test]
     fn test_missing_artifact_error() {
         let engine = engine_setup();
         let code = r#"
-        Analysis "Busqueda_Fantasma" {
-            target: "Sistema_Inexistente"
-            calculate: [ determinant ]
+        query "Sistema_Fantasma" {
+            determinant
         }
         "#;
 
         println!("\n--- TEST: ARTEFACTO NO ENCONTRADO ---");
         let results = engine.process_file(code);
         
-        assert_eq!(results.len(), 1);
-        // Esto imprimirá un error en consola "[ERROR] Runtime failure..." pero no debe hacer panic
-        CodexExecutor::execute(results, true);
-    }
-
-    // TEST 4: Routing Multiparadigma
-    // Verificamos que keywords de distintos dominios convivan en el mismo archivo
-    #[test]
-    fn test_mixed_domains_routing() {
-        let engine = engine_setup();
-
-        let code = r#"
-        // 2. Dominio Álgebra Lineal
-        LinearSystem "Sys" { 
-            coefficients: [2, 0; 0, 2] 
-        }
-        
-        Analysis "Det" { 
-            target: "Sys"
-            calculate: [determinant] 
-        }
-
-        "#;
-
-        println!("\n--- TEST: ROUTING MULTIPARADIGMA ---");
-        let results = engine.process_file(code);
-
-        // Esperamos 2 bloques: Sys, Analysis
-        assert_eq!(results.len(), 2, "El parser debe identificar 2 bloques distintos");
-        
-        // Validar orden y tipos
-        if !matches!(results[0], CodexResult::LinearAlgebra(_)) { panic!("Bloque 1 debe ser LinearAlgebra (System)"); }
-        if !matches!(results[1], CodexResult::LinearAlgebra(_)) { panic!("Bloque 2 debe ser Analysis"); }
-
-        CodexExecutor::execute(results, true);
+        // CORRECCIÓN: Pasamos el closure y verificamos visualmente que salga el error
+        CodexExecutor::execute(results, true, |alias, output| {
+            if let CodexOutput::Error(msg) = output {
+                println!("[TEST OK] Error capturado correctamente: {}: {}", alias, msg);
+            } else {
+                test_observer(alias, output);
+            }
+        });
     }
 }

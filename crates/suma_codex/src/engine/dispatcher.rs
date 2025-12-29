@@ -6,9 +6,11 @@ use crate::parsers::codex_parser::{CodexParser, Rule};
 use crate::ast::CodexResult;
 use pest::Parser;
 
+// Importamos los Modelos de los dominios
 use crate::domains::optimization::OptimizationModel;
 use crate::domains::boolean_algebra::BooleanModel;
-use crate::domains::linear_algebra::ast::LinearAlgebraModel;
+// CAMBIO CRÍTICO: Importamos el nuevo Block en lugar del Model antiguo
+use crate::domains::linear_algebra::ast::LinearAlgebraBlock;
 
 pub struct CodexEngine {
     parsers: Vec<Box<dyn DomainParser>>,
@@ -54,12 +56,12 @@ impl CodexEngine {
     }
 
     fn handle_domain_block(&self, pair: pest::iterators::Pair<Rule>, results: &mut Vec<CodexResult>) {
-        // 1. CAPTURAR EL TEXTO COMPLETO (Header + Contenido)
-        // Esto es vital: pasamos 'LinearSystem "X" { ... }' intacto al parser.
+        // 1. CAPTURAR EL TEXTO COMPLETO
         let full_text = pair.as_str(); 
         
         // 2. IDENTIFICAR LA KEYWORD PARA EL RUTEO
-        // Clonamos el par para navegarlo sin consumir el original (aunque aquí ya tenemos full_text)
+        // Si viene 'query "X" {...}', la keyword es "query".
+        // Como registramos "query" en LinearAlgebraParser, el ruteo funciona solo.
         let mut parts = pair.clone().into_inner();
         let keyword = parts.next().unwrap().as_str();
 
@@ -67,7 +69,6 @@ impl CodexEngine {
         if let Some(&index) = self.routes.get(keyword) {
             let parser = &self.parsers[index];
             
-            // PASAMOS EL TEXTO COMPLETO
             match parser.parse_domain(full_text) { 
                 Ok(any_ast) => {
                     self.convert_and_store(any_ast, results)
@@ -75,7 +76,7 @@ impl CodexEngine {
                 Err(e) => println!("Error en bloque '{}': {}", keyword, e),
             }
         } else {
-            eprintln!("Advertencia: Palabra clave desconocida '{}'.", keyword);
+            eprintln!("Advertencia: Palabra clave desconocida '{}'. ¿Olvidaste registrar el dominio?", keyword);
         }
     }
 
@@ -86,8 +87,9 @@ impl CodexEngine {
         else if let Some(model) = any_ast.downcast_ref::<BooleanModel>() {
             results.push(CodexResult::Boolean(model.clone()));
         }
-        else if let Some(model) = any_ast.downcast_ref::<LinearAlgebraModel>() {
-            results.push(CodexResult::LinearAlgebra(model.clone()));
+        // CAMBIO CRÍTICO: Downcast al nuevo LinearAlgebraBlock
+        else if let Some(block) = any_ast.downcast_ref::<LinearAlgebraBlock>() {
+            results.push(CodexResult::LinearAlgebra(block.clone()));
         }
     }
 }

@@ -1,0 +1,26 @@
+Economy "DA_y_OA" {
+    duration: "5 years"
+    consumers: 500
+    government: 1200
+    xn: 1000
+}
+
+Query "DA_y_OA" {
+
+    // Operaciones sobre demanda agregada
+    demanda_agregada
+    demanda_agregada.plot
+    
+
+    // Operaciones sobre oferta agregada
+    oferta_agregada
+    oferta_agregada.plot
+
+    // Punto de equilibrio entre demanda y oferta agregada
+    equilibrio
+    equilibrio.plot
+
+    // Informacion probable
+    excedente_consumidor
+    excedente_productor
+}

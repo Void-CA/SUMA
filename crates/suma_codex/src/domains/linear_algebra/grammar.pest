@@ -1,41 +1,44 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
-// Nueva regla para comas opcionales
-SEP        = _{ ","? } 
+SEP        = _{ ","? } // Separador opcional (coma)
 
-linear_algebra_block = { SOI ~ (system_def | analysis_def)* ~ EOI }
+linear_algebra_block = { SOI ~ (system_def | query_def)* ~ EOI }
 
-// --- DEFINICIÓN ---
-// Agregamos SEP para permitir { A: [...], b: [...] }
-system_def = { "LinearSystem" ~ name ~ "{" ~ (sys_property ~ SEP)* ~ "}" }
+// ==========================================
+// 1. DEFINICIÓN DE MODELO (Estado)
+// ==========================================
+// Sintaxis: LinearSystem "ID" { ... }
+system_def = { "LinearSystem" ~ model_id ~ "{" ~ (sys_property ~ SEP)* ~ "}" }
 
-sys_property = { prop_a | prop_b }
-// Reglas nombradas para parsing seguro
-prop_a = { ("coefficients" | "A") ~ ":" ~ matrix_lit }
-prop_b = { ("constants" | "b") ~ ":" ~ matrix_lit }
+// Forzamos comillas para simetría con la query
+model_id     = { string_lit } 
 
-// --- QUERY ---
-// Agregamos SEP y reglas nombradas
-analysis_def = { "Analysis" ~ name ~ "{" ~ (query_property ~ SEP)* ~ "}" }
+sys_property = { prop_coeffs | prop_consts }
+prop_coeffs  = { ("coefficients" | "A") ~ ":" ~ matrix_lit }
+prop_consts  = { ("constants" | "b")    ~ ":" ~ matrix_lit }
 
-query_property = { prop_target | prop_calculate | prop_export }
+// ==========================================
+// 2. QUERY (Ejecución)
+// ==========================================
+// Sintaxis: query "ID" { capability [as alias] }
+// Reemplaza completamente a "Analysis"
+query_def = { "query" ~ target_ref ~ "{" ~ (query_stmt ~ SEP)* ~ "}" }
 
-prop_target    = { "target"    ~ ":" ~ name_ref }
-prop_calculate = { "calculate" ~ ":" ~ prop_list }
-prop_export    = { "export"    ~ ":" ~ export_map }
+target_ref = { string_lit }
 
-// --- PRIMITIVAS ---
-prop_list   = { "[" ~ math_prop ~ ("," ~ math_prop)* ~ "]" }
-math_prop   = { "determinant" | "solution" | "inverse" | "rank" | "trace" }
+// Una linea de query: "determinant" o "determinant as det"
+query_stmt = { capability ~ (k_as ~ alias_ident)? }
 
-export_map  = { "{" ~ export_item ~ ("," ~ export_item)* ~ "}" }
-export_item = { math_prop ~ "->" ~ ident }
+// Palabras reservadas internas
+k_as       = _{ "as" } 
+capability = { "determinant" | "solution" | "inverse" | "rank" | "trace" }
+alias_ident = @{ ident }
 
-name     = @{ string_lit | ident }
-name_ref = @{ string_lit | ident } 
-
-string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+// ==========================================
+// 3. PRIMITIVAS Y MATRICES
+// ==========================================
 ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 
 matrix_lit = { "[" ~ row ~ (row_sep ~ row)* ~ "]" }
 row        = { number ~ (col_sep ~ number)* }

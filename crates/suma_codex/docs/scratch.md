@@ -1,6 +1,4 @@
-Aquí está tu documento en formato Markdown:
-
-# 🗺️ Fase 1: El Cerebro (suma_core)
+ 🗺️ Fase 1: El Cerebro (suma_core)
 Antes de inventar el lenguaje, asegúrate de que la matemática funciona.
 
 - **Crear Lógica:** Crea el módulo en suma_core/src/tudominio.

@@ -2,7 +2,11 @@ use pest::Parser;
 use pest_derive::Parser;
 
 use crate::parsers::traits::{DomainParser, DomainResult};
-use super::ast::{LinearAlgebraModel, LinearAlgebraAction, SystemDef, AnalysisDef, MatrixData};
+// Importamos el nuevo AST refactorizado
+use super::ast::{
+    LinearAlgebraBlock, LinAlgStmt, SystemDef, QueryDef, 
+    Request, Capability, MatrixData
+};
 
 #[derive(Parser)]
 #[grammar = "domains/linear_algebra/grammar.pest"]
@@ -13,63 +17,70 @@ pub struct LinearAlgebraParser;
 impl DomainParser for LinearAlgebraParser {
     fn valid_keywords(&self) -> Vec<&'static str> {
         vec![
-            "LinearSystem", // Definiciones
-            "Analysis"      // Queries
+            "LinearSystem", // Definidor de estado
+            "query"         // Ejecutor
         ]
     }
 
     fn parse_domain(&self, content: &str) -> DomainResult {
-        // 1. Parsear el contenido del bloque
+        // 1. Iniciar parsing con la regla raíz
         let pairs = LinearAlgebraPestGrammar::parse(Rule::linear_algebra_block, content)
             .map_err(|e| format!("{}", e))?;
 
-        let mut actions = Vec::new();
+        let mut statements = Vec::new();
 
-        // 2. Iterar sobre las definiciones (System o Analysis)
+        // 2. Iterar sobre sentencias (System o Query)
         if let Some(root) = pairs.clone().next() {
             for pair in root.into_inner() {
                 match pair.as_rule() {
                     Rule::system_def => {
-                        actions.push(LinearAlgebraAction::System(parse_system(pair)));
+                        statements.push(LinAlgStmt::System(parse_system(pair)));
                     },
-                    Rule::analysis_def => {
-                        actions.push(LinearAlgebraAction::Analysis(parse_analysis(pair)));
+                    Rule::query_def => {
+                        statements.push(LinAlgStmt::Query(parse_query(pair)));
                     },
                     _ => {}
                 }
             }
         }
 
-        // Retornamos el modelo contenedor
-        Ok(Box::new(LinearAlgebraModel { 
-            name: None, // Se llenará en el Dispatcher
-            actions 
+        // Retornamos el bloque contenedor plano
+        Ok(Box::new(LinearAlgebraBlock { 
+            statements 
         }))
     }
 }
 
-// --- Helpers de Parsing ---
+// ==========================================
+// HELPERS DE PARSING (Detalle de Implementación)
+// ==========================================
 
+/// Parsea: LinearSystem "ID" { coefficients: [...], constants: [...] }
 fn parse_system(pair: pest::iterators::Pair<Rule>) -> SystemDef {
     let mut inner = pair.into_inner();
-    let name = parse_name(inner.next().unwrap());
     
-    let mut sys = SystemDef { name, matrix_a: None, vector_b: None };
+    // 1. Extraer ID (model_id es un string_lit)
+    let id = parse_string_lit(inner.next().unwrap());
+    
+    let mut sys = SystemDef { 
+        id, 
+        coefficients: None, 
+        constants: None 
+    };
 
+    // 2. Iterar propiedades
     for prop in inner {
-        // prop es 'sys_property', su hijo es 'prop_a' o 'prop_b'
+        // prop es 'sys_property', hijos: 'prop_coeffs' o 'prop_consts'
         let specific_prop = prop.into_inner().next().unwrap();
         
         match specific_prop.as_rule() {
-            Rule::prop_a => {
-                // Estructura: "coefficients" ~ ":" ~ matrix_lit
-                // El literal se ignora, tomamos el matrix_lit
+            Rule::prop_coeffs => {
                 let matrix_pair = specific_prop.into_inner().next().unwrap();
-                sys.matrix_a = Some(parse_matrix(matrix_pair));
+                sys.coefficients = Some(parse_matrix(matrix_pair));
             },
-            Rule::prop_b => {
+            Rule::prop_consts => {
                 let matrix_pair = specific_prop.into_inner().next().unwrap();
-                sys.vector_b = Some(parse_matrix(matrix_pair));
+                sys.constants = Some(parse_matrix(matrix_pair));
             },
             _ => {}
         }
@@ -77,49 +88,53 @@ fn parse_system(pair: pest::iterators::Pair<Rule>) -> SystemDef {
     sys
 }
 
-fn parse_analysis(pair: pest::iterators::Pair<Rule>) -> AnalysisDef {
+/// Parsea: query "ID" { capability [as alias], ... }
+fn parse_query(pair: pest::iterators::Pair<Rule>) -> QueryDef {
     let mut inner = pair.into_inner();
-    let name = parse_name(inner.next().unwrap());
+    
+    // 1. Extraer Target (target_ref es un string_lit)
+    let target_id = parse_string_lit(inner.next().unwrap());
 
-    let mut analysis = AnalysisDef { 
-        name, 
-        target: String::new(), 
-        calculate: Vec::new(), 
-        export: Vec::new() 
-    };
+    let mut requests = Vec::new();
 
-    for prop in inner {
-        // prop es 'query_property', su hijo es prop_target, prop_calculate, etc.
-        let specific_prop = prop.into_inner().next().unwrap();
-
-        match specific_prop.as_rule() {
-            Rule::prop_target => {
-                // Estructura: "target" ~ ":" ~ name_ref
-                let val_pair = specific_prop.into_inner().next().unwrap();
-                analysis.target = parse_name(val_pair);
-            },
-            Rule::prop_calculate => {
-                // Estructura: "calculate" ~ ":" ~ prop_list
-                let list_pair = specific_prop.into_inner().next().unwrap();
-                for item in list_pair.into_inner() {
-                    analysis.calculate.push(item.as_str().to_string());
-                }
-            },
-            Rule::prop_export => {
-                let map_pair = specific_prop.into_inner().next().unwrap();
-                for item in map_pair.into_inner() {
-                    let mut parts = item.into_inner();
-                    let prop = parts.next().unwrap().as_str().to_string();
-                    let var = parts.next().unwrap().as_str().to_string();
-                    analysis.export.push((prop, var));
-                }
-            },
-            _ => {}
+    // 2. Iterar sentencias de la query
+    for stmt in inner {
+        if stmt.as_rule() == Rule::query_stmt {
+            requests.push(parse_request(stmt));
         }
     }
-    analysis
+
+    QueryDef { target_id, requests }
 }
 
+/// Parsea una linea: "determinant as det_A"
+fn parse_request(pair: pest::iterators::Pair<Rule>) -> Request {
+    let mut inner = pair.into_inner();
+    
+    // 1. Capability (Obligatorio)
+    let cap_pair = inner.next().unwrap();
+    let capability = match cap_pair.as_str() {
+        "determinant" => Capability::Determinant,
+        "solution"    => Capability::Solution,
+        "inverse"     => Capability::Inverse,
+        "rank"        => Capability::Rank,
+        "trace"       => Capability::Trace,
+        _ => panic!("Capability desconocida en parser: {}", cap_pair.as_str()),
+    };
+
+    // 2. Alias (Opcional)
+    // La gramática dice: capability ~ (k_as ~ alias_ident)?
+    // Si hay un siguiente token, es el alias_ident (el 'as' es silencioso/oculto en pest si tiene _)
+    let alias = if let Some(alias_pair) = inner.next() {
+        Some(alias_pair.as_str().to_string())
+    } else {
+        None
+    };
+
+    Request { capability, alias }
+}
+
+/// Parsea Matrices (Lógica matemática pura)
 fn parse_matrix(pair: pest::iterators::Pair<Rule>) -> MatrixData {
     let mut data = Vec::new();
     let mut rows = 0;
@@ -129,6 +144,7 @@ fn parse_matrix(pair: pest::iterators::Pair<Rule>) -> MatrixData {
         rows += 1;
         let mut current_cols = 0;
         for num_pair in row_pair.into_inner() {
+            // Manejo robusto de números flotantes
             let val: f64 = num_pair.as_str().parse().unwrap_or(0.0);
             data.push(val);
             current_cols += 1;
@@ -138,6 +154,7 @@ fn parse_matrix(pair: pest::iterators::Pair<Rule>) -> MatrixData {
     MatrixData { rows, cols, data }
 }
 
-fn parse_name(pair: pest::iterators::Pair<Rule>) -> String {
+/// Utilidad para limpiar comillas de string_lit: "Texto" -> Texto
+fn parse_string_lit(pair: pest::iterators::Pair<Rule>) -> String {
     pair.as_str().trim_matches('"').to_string()
 }
