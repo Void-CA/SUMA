@@ -13,6 +13,7 @@ pub mod formatting;
 pub mod error;
 pub mod probability;
 pub mod linear_algebra;
+pub mod optimization;
 
 pub mod symbolics;
 

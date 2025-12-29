@@ -34,3 +34,14 @@ macro_rules! matrix {
         }
     };
 }
+
+#[macro_export]
+macro_rules! zeros {
+    ($rows:expr, $cols:expr) => {
+        {
+            let total_elements = $rows * $cols;
+            let data = vec![0.0; total_elements];
+            crate::linear_algebra::DenseMatrix::new($rows, $cols, data)
+        }
+    };
+}

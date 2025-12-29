@@ -39,6 +39,10 @@ where
         Self { data, rows, cols }
     }
     
+    pub fn set(&mut self, row: usize, col: usize, value: T) {
+        self.data[row * self.cols + col] = value;
+    }
+    
     pub fn is_approx(&self, other: &DenseMatrix<T>) -> bool {
         // 1. Si las dimensiones son distintas, imposible que sean iguales
         if self.rows != other.rows || self.cols != other.cols {

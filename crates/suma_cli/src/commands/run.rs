@@ -63,7 +63,6 @@ pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
             },
 
             // --- CASO 2: Matriz o Vector ---
-            // Aquí decidimos que las matrices bajen a una nueva línea para leerse mejor
             CodexOutput::LinAlgMatrix(mat) | CodexOutput::LinAlgVector(mat) => {
                 println!(); // Nueva línea antes de la matriz
                 println!("{:.2}", mat);
