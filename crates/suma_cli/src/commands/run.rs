@@ -12,6 +12,7 @@ use suma_codex::engine::executor::CodexExecutor;
 use suma_codex::domains::optimization::parser::OptimizationParser;
 use suma_codex::domains::boolean_algebra::parser::BooleanParser;
 use suma_codex::domains::linear_algebra::parser::LinearAlgebraParser;
+use suma_codex::outputs::CodexOutput;
 
 pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
     // LOG: Lectura de archivo (Solo verbose)
@@ -49,12 +50,42 @@ pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
         println!("-- Execution Start --");
     }
     
-    // Pasamos el flag 'verbose' al ejecutor para que propague el silencio
-    CodexExecutor::execute(results, verbose);
+    let mut console_observer = |label: &str, output: CodexOutput| {
+        // Imprimimos la etiqueta (ej: "Resultado", "Eigenvalues")
+        // Usamos print! sin ln! para que los escalares queden en la misma línea
+        print!("➜ {}: ", label.blue().bold());
+
+        match output {
+            // --- CASO 1: Escalar (Simple número) ---
+            CodexOutput::LinAlgScalar(val) => {
+                // Sugerencia: Limitar decimales para limpieza visual
+                println!("{:.4}", val.to_string().green());
+            },
+
+            // --- CASO 2: Matriz o Vector ---
+            // Aquí decidimos que las matrices bajen a una nueva línea para leerse mejor
+            CodexOutput::LinAlgMatrix(mat) | CodexOutput::LinAlgVector(mat) => {
+                println!(); // Nueva línea antes de la matriz
+                println!("{:.2}", mat);
+            },
+
+            // --- CASO 3: Mensajes Generales ---
+            CodexOutput::Message(msg) => {
+                println!("{}", msg.italic());
+            },
+
+            // --- CASO 4: Errores de Runtime ---
+            CodexOutput::Error(err) => {
+                println!("{}", err.red().bold());
+            }
+        }
+    };
+
+    // 2. EJECUCIÓN
+    // Pasamos la clausura mutable al ejecutor
+    CodexExecutor::execute(results, verbose, &mut console_observer);
     
-    if verbose {
-        println!("-- Execution End --");
-    }
+    if verbose { println!("-- Execution End --"); }
 
     Ok(())
 }
