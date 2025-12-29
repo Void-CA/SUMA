@@ -1,116 +1,194 @@
-// src/core/optimization/linear/transformers/standard_form.rs
-
 use std::collections::{HashMap, HashSet};
-use crate::optimization::linear::model::{LinearProblem, Relation};
+use crate::optimization::linear::model::{LinearProblem, Relation, OptimizationDirection};
 use crate::optimization::linear::internal::tableau::SimplexTableau;
-use crate::optimization::linear::error::OptimizationError;
-// Asumimos que LinearAlgebra expone constructores de matrices
-use crate::zeros; 
+use crate::optimization::linear::error::LinearOptimizationError; // Cambio de nombre
+use crate::zeros;
 
-/// Resultado de la transformación: El Tableau listo para iterar y el mapa para descifrar la respuesta.
 pub struct StandardFormResult {
     pub tableau: SimplexTableau,
     pub var_map: HashMap<String, usize>,
-    pub reverse_map: HashMap<usize, String>, // Para reportar la solución final
+    pub reverse_map: HashMap<usize, String>,
+    pub artificial_indices: Vec<usize>,
+    pub original_objective_row: Vec<f64>,
+    
+    // Mapa para rastrear qué columna corresponde a la holgura de qué restricción
+    pub constraint_col_map: HashMap<String, usize>,
 }
 
-pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, OptimizationError> {
-    // 1. Recolectar todas las variables únicas (decisión)
+pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, LinearOptimizationError> {
+    // 1. Recolectar variables
     let mut vars: Vec<String> = problem.get_variables().into_iter().collect();
-    vars.sort(); // Ordenar para determinismo
-
+    vars.sort(); 
     let num_decision_vars = vars.len();
     let num_constraints = problem.constraints.len();
-    
-    // El número total de columnas será: Vars Decisión + Vars Holgura/Exceso
-    // (Simplificación: Asumimos 1 variable de holgura por restricción para empezar)
-    let num_total_vars = num_decision_vars + num_constraints;
 
-    // 2. Crear Mapas de Índices
+    // 2. Contar variables auxiliares
+    let mut num_slack = 0;
+    let mut num_artificial = 0;
+
+    for c in &problem.constraints {
+        match c.relation {
+            Relation::LessOrEqual => num_slack += 1,
+            Relation::GreaterOrEqual => {
+                num_slack += 1;
+                num_artificial += 1;
+            },
+            Relation::Equal => num_artificial += 1,
+        }
+    }
+
+    let num_total_vars = num_decision_vars + num_slack + num_artificial;
+    let rows = num_constraints + 1;
+    let cols = num_total_vars + 1;
+
+    // 3. Crear Mapas
     let mut var_map = HashMap::new();
     let mut reverse_map = HashMap::new();
-
     for (i, name) in vars.iter().enumerate() {
         var_map.insert(name.clone(), i);
         reverse_map.insert(i, name.clone());
     }
 
-    // Nombrar variables de holgura/exceso internamente
-    for i in 0..num_constraints {
-        let slack_idx = num_decision_vars + i;
-        let slack_name = format!("_slack_{}", i);
-        reverse_map.insert(slack_idx, slack_name);
-        // No necesitamos agregarlas al var_map de entrada del usuario necesariamente, 
-        // pero sí al reverso para debug.
-    }
+    // 4. Inicializar Matriz
+    let mut matrix = zeros!(rows, cols);
+    let mut basic_vars = vec![0; num_constraints];
+    let mut artificial_indices = Vec::new();
+    let mut constraint_col_map = HashMap::new(); // Nuevo mapa
 
-    // 3. Inicializar Matriz (M filas x N columnas + 1 RHS)
-    // Usamos el módulo de matrices de SUMA
-    // Dimensiones: filas = num_constraints + 1 (función objetivo), cols = num_total_vars + 1 (RHS)
-    let rows = num_constraints + 1;
-    let cols = num_total_vars + 1;
-    
-    let mut matrix = zeros!(rows, cols); 
+    let mut current_slack_col = num_decision_vars;
+    let mut current_artificial_col = num_decision_vars + num_slack;
 
-    // 4. Llenar Restricciones (Filas 0 a N-1)
+    // 5. Llenar Restricciones
     for (row_idx, constraint) in problem.constraints.iter().enumerate() {
-        // A) Coeficientes de variables de decisión
+        // A) Coeficientes decisión
         for (var_name, coeff) in &constraint.lhs.coefficients {
             if let Some(&col_idx) = var_map.get(var_name) {
                 matrix.set(row_idx, col_idx, *coeff);
             }
         }
 
-        // B) Variable de Holgura / Exceso
-        // Columna de holgura correspondiente a esta fila
-        let slack_col = num_decision_vars + row_idx; 
-        
+        // B) Vars Auxiliares y Mapeo para Shadow Prices
         match constraint.relation {
             Relation::LessOrEqual => {
-                // lhs + s = rhs  ->  coeff de s es +1
-                matrix.set(row_idx, slack_col, 1.0);
+                matrix.set(row_idx, current_slack_col, 1.0);
+                reverse_map.insert(current_slack_col, format!("_s_{}", row_idx));
+                basic_vars[row_idx] = current_slack_col;
+                
+                if let Some(name) = &constraint.name {
+                    constraint_col_map.insert(name.clone(), current_slack_col);
+                }
+                
+                current_slack_col += 1;
             },
             Relation::GreaterOrEqual => {
-                // lhs - e = rhs  ->  coeff de e es -1
-                matrix.set(row_idx, slack_col, -1.0);
-                // Nota: Esto requerirá Fase 1 o Método de la M Grande (Big M) 
-                // para encontrar una base factible inicial.
-                // Por ahora, asumimos origen factible o manejamos LessOrEqual.
+                matrix.set(row_idx, current_slack_col, -1.0);
+                reverse_map.insert(current_slack_col, format!("_surplus_{}", row_idx));
+                
+                // En >=, el shadow price se lee del surplus
+                if let Some(name) = &constraint.name {
+                    constraint_col_map.insert(name.clone(), current_slack_col);
+                }
+                current_slack_col += 1;
+
+                matrix.set(row_idx, current_artificial_col, 1.0);
+                reverse_map.insert(current_artificial_col, format!("_art_{}", row_idx));
+                artificial_indices.push(current_artificial_col);
+                basic_vars[row_idx] = current_artificial_col;
+                current_artificial_col += 1;
             },
             Relation::Equal => {
-                // Requiere variable artificial. Fuera del alcance inicial de este snippet,
-                // pero aquí iría la lógica.
+                matrix.set(row_idx, current_artificial_col, 1.0);
+                reverse_map.insert(current_artificial_col, format!("_art_{}", row_idx));
+                artificial_indices.push(current_artificial_col);
+                basic_vars[row_idx] = current_artificial_col;
+                current_artificial_col += 1;
             }
         }
-
-        // C) Lado Derecho (RHS)
-        // La última columna es el RHS
-        // Nota: Si rhs < 0, deberíamos multiplicar toda la fila por -1 primero.
+        // C) RHS
         matrix.set(row_idx, cols - 1, constraint.rhs);
     }
 
-    // 5. Llenar Función Objetivo (Última fila)
-    // En el Tableau estándar (Maximización): Z - c1x1 - c2x2 = 0
-    // Por tanto, los coeficientes van con signo invertido.
-    let obj_row_idx = rows - 1;
+    // 6. Construir Funciones Objetivo
+    let mut original_objective_row = vec![0.0; cols]; 
+    let is_minimization = problem.objective.direction == OptimizationDirection::Minimize;
+
     for (var_name, coeff) in &problem.objective.expression.coefficients {
         if let Some(&col_idx) = var_map.get(var_name) {
-            // Invertimos signo para formato Z-Row
-            matrix.set(obj_row_idx, col_idx, -coeff); 
+            let val = if is_minimization { *coeff } else { -*coeff };
+            original_objective_row[col_idx] = val;
         }
     }
-    
-    // Las variables básicas iniciales son las holguras (si existen)
-    let basic_vars = (0..num_constraints).map(|i| num_decision_vars + i).collect();
-    let non_basic_vars = (0..num_decision_vars).collect();
+
+    // Configurar fila Z
+    let z_row_idx = rows - 1;
+
+    if !artificial_indices.is_empty() {
+        // FASE 1
+        for &art_col in &artificial_indices {
+            matrix.set(z_row_idx, art_col, 1.0);
+        }
+        for row_idx in 0..num_constraints {
+            if artificial_indices.contains(&basic_vars[row_idx]) {
+                for col in 0..cols {
+                    let val_row = matrix.get(row_idx, col);
+                    let current_z = matrix.get(z_row_idx, col);
+                    matrix.set(z_row_idx, col, current_z - val_row);
+                }
+            }
+        }
+    } else {
+        // NO FASE 1
+        for (col, &val) in original_objective_row.iter().enumerate() {
+            matrix.set(z_row_idx, col, val);
+        }
+    }
+
+    let non_basic_vars: Vec<usize> = (0..num_total_vars)
+        .filter(|v| !basic_vars.contains(v))
+        .collect();
 
     Ok(StandardFormResult {
-        tableau: SimplexTableau {
-            matrix,
-            basic_vars,
-            non_basic_vars,
-        },
+        tableau: SimplexTableau { matrix, basic_vars, non_basic_vars },
         var_map,
         reverse_map,
+        artificial_indices,
+        original_objective_row,
+        constraint_col_map,
     })
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::optimization::linear::model::{LinearProblem, Objective, Constraint, LinearExpression, Relation};
+
+    fn expr(terms: &[(&str, f64)], constant: f64) -> LinearExpression {
+        let mut e = LinearExpression::new();
+        for (name, coeff) in terms { e.add_term(name, *coeff); }
+        e.set_constant(constant);
+        e
+    }
+
+    #[test]
+    fn test_phase_1_setup_logic() {
+        let objective = Objective::minimize(expr(&[("x", 1.0), ("y", 1.0)], 0.0));
+        let mut problem = LinearProblem::new("Phase1", objective);
+        problem.add_constraint(Constraint::new(expr(&[("x", 1.0), ("y", 1.0)], 0.0), Relation::GreaterOrEqual, 10.0));
+
+        let res = to_standard_form(&problem).unwrap();
+        let matrix = &res.tableau.matrix;
+        let z_row = matrix.rows - 1;
+        
+        let x_col = *res.var_map.get("x").unwrap();
+        let art_col = res.artificial_indices[0]; 
+        let rhs_col = matrix.cols - 1;
+
+        let art_val_z = matrix.get(z_row, art_col);
+        assert!((art_val_z).abs() < 1e-9);
+
+        let x_val_z = matrix.get(z_row, x_col);
+        assert!((x_val_z - (-1.0)).abs() < 1e-9);
+
+        let rhs_z = matrix.get(z_row, rhs_col);
+        assert!((rhs_z - (-10.0)).abs() < 1e-9);
+    }
 }

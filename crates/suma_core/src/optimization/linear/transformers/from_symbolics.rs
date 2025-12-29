@@ -2,12 +2,12 @@
 
 use crate::symbolics::ast::Expr;
 use crate::optimization::linear::model::LinearExpression;
-use crate::optimization::linear::error::OptimizationError;
+use crate::optimization::linear::error::LinearOptimizationError;
 
 impl LinearExpression {
     /// Intenta convertir una expresión simbólica general en una expresión lineal estricta.
     /// Falla si encuentra no-linealidades (ej: x * y, sin(x)).
-    pub fn try_from_ast(expr: &Expr) -> Result<Self, OptimizationError> {
+    pub fn try_from_ast(expr: &Expr) -> Result<Self, LinearOptimizationError> {
         let mut linear = LinearExpression::new();
         process_node(expr, 1.0, &mut linear)?;
         Ok(linear)
@@ -19,7 +19,7 @@ fn process_node(
     expr: &Expr, 
     multiplier: f64, 
     acc: &mut LinearExpression
-) -> Result<(), OptimizationError> {
+) -> Result<(), LinearOptimizationError> {
     match expr {
         Expr::Const(c) => {
             // Constante * multiplicador acumulado se suma al término independiente
@@ -46,11 +46,11 @@ fn process_node(
                 },
                 (Expr::Var(_), Expr::Var(_)) => {
                     // Error: Multiplicación de variables (No lineal)
-                    return Err(OptimizationError::NonLinearExpression("Variable * Variable detectado".into()));
+                    return Err(LinearOptimizationError::NonLinearExpression("Variable * Variable detectado".into()));
                 },
                 _ => {
                     // Casos más complejos requieren simplificación previa
-                    return Err(OptimizationError::NonLinearExpression("Multiplicación compleja no soportada".into()));
+                    return Err(LinearOptimizationError::NonLinearExpression("Multiplicación compleja no soportada".into()));
                 }
             }
         },
@@ -60,14 +60,14 @@ fn process_node(
         Expr::Div(lhs, rhs) => {
             // Solo permitimos división por constante
             if let Expr::Const(c) = &**rhs {
-                if *c == 0.0 { return Err(OptimizationError::NumericalError("División por cero".into())); }
+                if *c == 0.0 { return Err(LinearOptimizationError::NumericalError("División por cero".into())); }
                 process_node(lhs, multiplier / c, acc)?;
             } else {
-                return Err(OptimizationError::NonLinearExpression("División por variable".into()));
+                return Err(LinearOptimizationError::NonLinearExpression("División por variable".into()));
             }
         }
         // Casos como Pow, Sin, Cos lanzarían error inmediato
-        _ => return Err(OptimizationError::NonLinearExpression(format!("Operación no soportada en LP: {:?}", expr))),
+        _ => return Err(LinearOptimizationError::NonLinearExpression(format!("Operación no soportada en LP: {:?}", expr))),
     }
     Ok(())
 }
