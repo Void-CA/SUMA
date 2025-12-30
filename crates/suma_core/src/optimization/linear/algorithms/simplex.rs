@@ -14,38 +14,41 @@ pub fn solve_primal(problem: &LinearProblem) -> OptimizationResult {
         reverse_map, 
         artificial_indices, 
         original_objective_row, 
-        constraint_col_map, // Usamos el mapa
+        constraint_col_map,
         .. 
     } = to_standard_form(problem)
         .map_err(|e| LinearOptimizationError::ValidationError(format!("{:?}", e)))?;
 
+    // Detectamos la dirección ORIGINAL
     let is_minimization = problem.objective.direction == OptimizationDirection::Minimize;
+
     let has_artificial_vars = !artificial_indices.is_empty();
 
-    // 2. FASE 1
+    // 2. FASE 1 (Buscar Factibilidad)
     if has_artificial_vars {
         run_simplex_phase(&mut tableau, None)?;
         let w_val = tableau.matrix.get(tableau.matrix.rows - 1, tableau.matrix.cols - 1);
-        if w_val < -1e-5 {
+        if w_val.abs() > 1e-5 { // Usar abs() por seguridad
             return Err(LinearOptimizationError::Infeasible);
         }
         prepare_phase_2(&mut tableau, &original_objective_row, &artificial_indices);
     }
 
-    // 4. FASE 2
+    // 3. FASE 2 (Optimizar)
     let ignore_list = if has_artificial_vars { Some(&artificial_indices) } else { None };
     run_simplex_phase(&mut tableau, ignore_list)?;
 
-    // 5. Extraer Resultados
+    // 4. Extraer Resultados
     let mut solution = extract_solution(&tableau, &reverse_map, &constraint_col_map);
     
-    // Ajustes para Minimización
+    // 5. AJUSTE DE SIGNOS (LA CORRECCIÓN)
+    // Si el problema original era MAXIMIZAR, invertimos el signo del resultado final.
+    // (Porque to_standard_form invirtió la entrada, el solver nos dio -Z).
     if is_minimization {
-        // Invertimos valor objetivo
+        // Invertimos valor objetivo (-550 -> 550)
         solution.objective_value = -solution.objective_value;
 
         // Invertimos Precios Sombra
-        // (ShadowPrice de Z = - ShadowPrice de -Z)
         for val in solution.shadow_prices.values_mut() {
             *val = -*val;
         }

@@ -1,16 +1,16 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
-SEP        = _{ ","? } // Separador opcional (coma)
+SEP        = _{ ","? } 
 
-linear_algebra_block = { SOI ~ (system_def | query_def)* ~ EOI }
+// CAMBIO PRINCIPAL: Eliminamos "| query_def"
+// Ahora este parser solo espera UNA definición de sistema por bloque despachado.
+linear_algebra_block = { SOI ~ system_def ~ EOI }
 
 // ==========================================
 // 1. DEFINICIÓN DE MODELO (Estado)
 // ==========================================
-// Sintaxis: LinearSystem "ID" { ... }
 system_def = { "LinearSystem" ~ model_id ~ "{" ~ (sys_property ~ SEP)* ~ "}" }
 
-// Forzamos comillas para simetría con la query
 model_id     = { string_lit } 
 
 sys_property = { prop_coeffs | prop_consts }
@@ -18,24 +18,7 @@ prop_coeffs  = { ("coefficients" | "A") ~ ":" ~ matrix_lit }
 prop_consts  = { ("constants" | "b")    ~ ":" ~ matrix_lit }
 
 // ==========================================
-// 2. QUERY (Ejecución)
-// ==========================================
-// Sintaxis: query "ID" { capability [as alias] }
-// Reemplaza completamente a "Analysis"
-query_def = { "query" ~ target_ref ~ "{" ~ (query_stmt ~ SEP)* ~ "}" }
-
-target_ref = { string_lit }
-
-// Una linea de query: "determinant" o "determinant as det"
-query_stmt = { capability ~ (k_as ~ alias_ident)? }
-
-// Palabras reservadas internas
-k_as       = _{ "as" } 
-capability = { "determinant" | "solution" | "inverse" | "rank" | "trace" }
-alias_ident = @{ ident }
-
-// ==========================================
-// 3. PRIMITIVAS Y MATRICES
+// 2. PRIMITIVAS Y MATRICES
 // ==========================================
 ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }

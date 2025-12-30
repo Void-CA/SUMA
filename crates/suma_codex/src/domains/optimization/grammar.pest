@@ -1,24 +1,24 @@
 // Reglas de sistema
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
 
-// BLOQUE PRINCIPAL
-// Ahora acepta un "model_id" opcional antes de la llave
-optimization_block = { "Optimization" ~ model_id? ~ "{" ~ header ~ constraints_section? ~ "}" }
+// ENTRY POINT: Ahora solo aceptamos definiciones
+// El dispatcher solo nos llamará si el texto empieza con "Optimization"
+optimization_block = { SOI ~ definition ~ EOI }
 
-// Identificador del modelo (ej: "MiProblema")
+// --- 1. DEFINICIÓN DEL MODELO ---
+definition = { ^"Optimization" ~ model_id ~ "{" ~ header ~ constraints_section? ~ "}" }
+
 model_id = { string_lit }
 
-// Cabecera
 header = { direction ~ expression }
 direction = { "maximize" | "minimize" | "max" | "min" }
 
-// Restricciones
 constraints_section = { "constraints" ~ "{" ~ constraint+ ~ "}" }
 constraint = { expression ~ relation ~ expression }
 relation = { "<=" | ">=" | "=" | "<" | ">" }
 
-// Aritmética
+// --- ARITMÉTICA Y UTILIDADES ---
 expression = { term ~ (add_op ~ term)* }
 term       = { factor ~ (mul_op ~ factor)* }
 factor     = { neg_op? ~ atom }
@@ -28,8 +28,6 @@ add_op = { "+" | "-" }
 mul_op = { "*" | "/" }
 neg_op = { "-" }
 
-number = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
-variable = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
-
-// Utilidad de Strings (Copiada de LinearAlgebra o común)
+number     = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+variable   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }

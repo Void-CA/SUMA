@@ -1,15 +1,16 @@
 use std::collections::HashMap;
 use std::any::Any;
 
+
 use crate::parsers::traits::DomainParser;
 use crate::parsers::codex_parser::{CodexParser, Rule};
 use crate::ast::CodexResult;
 use pest::Parser;
 
 // Importamos los Modelos de los dominios
-use crate::domains::optimization::OptimizationModel;
+use crate::domains::queries::ast::QueryBlock;
 use crate::domains::boolean_algebra::BooleanModel;
-// CAMBIO CRÍTICO: Importamos el nuevo Block en lugar del Model antiguo
+use crate::domains::optimization::ast::OptimizationBlock;
 use crate::domains::linear_algebra::ast::LinearAlgebraBlock;
 
 pub struct CodexEngine {
@@ -81,7 +82,7 @@ impl CodexEngine {
     }
 
     fn convert_and_store(&self, any_ast: Box<dyn Any>, results: &mut Vec<CodexResult>) {
-        if let Some(model) = any_ast.downcast_ref::<OptimizationModel>() {
+        if let Some(model) = any_ast.downcast_ref::<OptimizationBlock>() {
             results.push(CodexResult::Optimization(model.clone()));
         } 
         else if let Some(model) = any_ast.downcast_ref::<BooleanModel>() {
@@ -90,6 +91,12 @@ impl CodexEngine {
         // CAMBIO CRÍTICO: Downcast al nuevo LinearAlgebraBlock
         else if let Some(block) = any_ast.downcast_ref::<LinearAlgebraBlock>() {
             results.push(CodexResult::LinearAlgebra(block.clone()));
+        }
+        else if let Some(block) = any_ast.downcast_ref::<QueryBlock>() {
+            results.push(CodexResult::Query(block.clone()));
+        }
+        else {
+            eprintln!("Error: Tipo de AST desconocido al convertir y almacenar.");
         }
     }
 }

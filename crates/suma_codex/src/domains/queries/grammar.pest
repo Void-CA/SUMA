@@ -1,0 +1,16 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
+// ENTRY POINT
+query_block = { "query" ~ target_id ~ "{" ~ command+ ~ "}" }
+
+target_id = { string_lit }
+
+// Un comando genérico: "verbo" o "verbo as alias"
+// Ej: "solve", "determinant as det", "optimize"
+command = { identifier ~ alias_clause? }
+
+alias_clause = { ^"as" ~ identifier }
+
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }

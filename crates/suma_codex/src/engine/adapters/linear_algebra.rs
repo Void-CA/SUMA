@@ -4,6 +4,7 @@ use colored::*; // Necesario solo para tus logs internos de verbose
 use suma_core::linear_algebra::{DenseMatrix, systems::LinearSystem};
 use crate::domains::linear_algebra::ast::{LinearAlgebraBlock, LinAlgStmt, SystemDef, QueryDef, Capability};
 
+use crate::domains::queries::ast::QueryBlock;
 // Importamos el contrato de salida
 use crate::outputs::CodexOutput;
 
@@ -17,7 +18,6 @@ impl LinearAlgebraExecutor {
         Self { verbose, artifacts: HashMap::new() }
     }
 
-    // Punto de entrada principal
     pub fn execute<F>(&mut self, block: &LinearAlgebraBlock, mut observer: F) -> Result<(), String> 
     where F: FnMut(&str, CodexOutput) 
     {
@@ -25,13 +25,11 @@ impl LinearAlgebraExecutor {
             match stmt {
                 LinAlgStmt::System(def) => {
                     self.register_system(def)?;
-                    // Notificamos al CLI que se guardó (opcional, como mensaje de bajo nivel)
                     if self.verbose {
                         observer(&def.id, CodexOutput::Message("Modelo definido en memoria.".into()));
                     }
                 },
                 LinAlgStmt::Query(query) => {
-                    // Pasamos la referencia mutable del observer
                     self.execute_query(query, &mut observer)?;
                 }
             }
@@ -39,6 +37,65 @@ impl LinearAlgebraExecutor {
         Ok(())
     }
 
+    // --- IMPLEMENTACIÓN DEL POLIMORFISMO ---
+    pub fn try_execute_query<F>(&mut self, query: &QueryBlock, observer: &mut F) -> bool
+    where F: FnMut(&str, CodexOutput) 
+    {
+        // 1. Chequeo de existencia: ¿Es mío este ID?
+        if !self.artifacts.contains_key(&query.target_id) {
+            return false; // No es mío, pasa al siguiente adaptador
+        }
+
+        if self.verbose {
+            println!("      [QUERY] LinearAlgebra aceptó el ID '{}'", query.target_id.cyan());
+        }
+
+        // 2. Recuperar el sistema
+        let system = self.artifacts.get(&query.target_id).unwrap();
+
+        // Construir matriz A (Lógica reutilizada)
+        let matrix_a = match &system.coefficients {
+            Some(data) => DenseMatrix::new(data.rows, data.cols, data.data.clone()),
+            None => {
+                observer("Error", CodexOutput::Error(format!("El sistema '{}' no tiene coeficientes.", system.id)));
+                return true; // Lo reconocimos, aunque falló
+            }
+        };
+
+        // 3. Iterar comandos genéricos
+        for cmd in &query.commands {
+            let label = cmd.alias.as_deref().unwrap_or(&cmd.action);
+
+            match cmd.action.as_str() {
+                "determinant" | "det" => {
+                    match matrix_a.determinant() {
+                        Ok(val) => observer(label, CodexOutput::LinAlgScalar(val)),
+                        Err(e) => observer(label, CodexOutput::Error(format!("Error en determinante: {}", e))),
+                    }
+                },
+                "solution" | "solve" => {
+                    if let Some(data_b) = &system.constants {
+                        let vector_b = DenseMatrix::new(data_b.rows, data_b.cols, data_b.data.clone());
+                        match LinearSystem::solve(&matrix_a, &vector_b) {
+                            Ok(res) => observer(label, CodexOutput::LinAlgVector(res)),
+                            Err(e) => observer(label, CodexOutput::Error(format!("Sin solución: {}", e))),
+                        }
+                    } else {
+                        observer(label, CodexOutput::Error("Faltan constantes 'b' para resolver.".into()));
+                    }
+                },
+                "inverse" | "inv" => {
+                    observer(label, CodexOutput::Message("Cálculo de Inversa pendiente.".into()));
+                },
+                _ => {
+                    // Comando no reconocido por este dominio
+                    observer("Warning", CodexOutput::Error(format!("Comando '{}' no soportado por LinearAlgebra", cmd.action)));
+                }
+            }
+        }
+
+        true // Retornamos true porque SÍ manejamos el ID
+    }
     // --- Lógica Interna ---
 
     fn register_system(&mut self, def: &SystemDef) -> Result<(), String> {

@@ -4,15 +4,16 @@ use suma_core::symbolics::ast::Expr; // Reutilizamos la expresión simbólica
 // --- 1. El Bloque Contenedor (Lo que faltaba) ---
 // Este es el struct que el Parser devuelve envuelto en Box<...>
 #[derive(Debug, Clone, Serialize)]
-pub struct OptimizationBlock {
-    pub model: OptimizationModel,
+pub enum OptimizationBlock {
+    Definition(OptimizationModel),
+    Query(OptimizationQuery),
 }
 
 // --- 2. El Modelo de Datos del Dominio ---
 
 #[derive(Debug, Clone, Serialize)]
 pub struct OptimizationModel {
-    pub id: String,
+    pub name: String,
     pub direction: OptimizationDirection,
     pub objective: Expr,
     pub constraints: Vec<ConstraintModel>,
@@ -31,9 +32,16 @@ pub struct ConstraintModel {
     pub right: Expr,
 }
 
-// Implementación opcional para facilitar la creación en tests
-impl OptimizationBlock {
-    pub fn new(model: OptimizationModel) -> Self {
-        Self { model }
-    }
+// --- QUERY (Ejecución) ---
+#[derive(Debug, Clone, Serialize)]
+pub struct OptimizationQuery {
+    pub target_id: String,
+    pub requests: Vec<OptimizationRequest>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum OptimizationRequest {
+    Solve,
+    ShadowPrices,
+    CheckFeasibility,
 }

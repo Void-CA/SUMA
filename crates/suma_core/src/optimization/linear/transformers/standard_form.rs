@@ -159,36 +159,83 @@ pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, L
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::optimization::linear::model::{LinearProblem, Objective, Constraint, LinearExpression, Relation};
+    use crate::optimization::linear::model::{LinearProblem, Objective, Constraint, LinearExpression, Relation, OptimizationDirection};
 
-    fn expr(terms: &[(&str, f64)], constant: f64) -> LinearExpression {
+    // Helper para crear expresiones rápidas
+    fn quick_expr(terms: Vec<(&str, f64)>) -> LinearExpression {
         let mut e = LinearExpression::new();
-        for (name, coeff) in terms { e.add_term(name, *coeff); }
-        e.set_constant(constant);
+        for (k, v) in terms { e.add_term(k, v); }
         e
     }
 
     #[test]
-    fn test_phase_1_setup_logic() {
-        let objective = Objective::minimize(expr(&[("x", 1.0), ("y", 1.0)], 0.0));
-        let mut problem = LinearProblem::new("Phase1", objective);
-        problem.add_constraint(Constraint::new(expr(&[("x", 1.0), ("y", 1.0)], 0.0), Relation::GreaterOrEqual, 10.0));
+    fn test_maximization_coefficients_are_inverted() {
+        // Caso: Maximizar 3x + 5y
+        // Esperamos que en el Tableau (diseñado para minimizar) aparezcan como -3 y -5
+        
+        let objective = Objective {
+            direction: OptimizationDirection::Maximize,
+            expression: quick_expr(vec![("x", 3.0), ("y", 5.0)]),
+        };
+        let problem = LinearProblem::new("MaxTest", objective);
+        
+        // Convertimos
+        let res = to_standard_form(&problem).expect("Fallo standard form");
+        
+        // Verificamos la fila Z (última fila si no hay artificiales, o original_objective_row)
+        let x_idx = *res.var_map.get("x").unwrap();
+        let y_idx = *res.var_map.get("y").unwrap();
+
+        // Verificamos original_objective_row (usado para Fase 2)
+        assert_eq!(res.original_objective_row[x_idx], -3.0, "Coeficiente X debe invertirse en Max");
+        assert_eq!(res.original_objective_row[y_idx], -5.0, "Coeficiente Y debe invertirse en Max");
+
+        // Verificamos el Tableau directo (asumiendo que no hay artificiales, pasa directo)
+        let z_row = res.tableau.matrix.rows - 1;
+        assert_eq!(res.tableau.matrix.get(z_row, x_idx), -3.0);
+    }
+
+    #[test]
+    fn test_minimization_coefficients_are_preserved() {
+        // Caso: Minimizar 3x + 5y
+        // Esperamos 3 y 5 positivos
+        
+        let objective = Objective {
+            direction: OptimizationDirection::Minimize,
+            expression: quick_expr(vec![("x", 3.0), ("y", 5.0)]),
+        };
+        let problem = LinearProblem::new("MinTest", objective);
+        
+        let res = to_standard_form(&problem).expect("Fallo standard form");
+        
+        let x_idx = *res.var_map.get("x").unwrap();
+        
+        assert_eq!(res.original_objective_row[x_idx], 3.0, "Coeficiente X debe mantenerse en Min");
+    }
+
+    #[test]
+    fn test_constraint_slack_mapping() {
+        // x <= 10  (Slack)
+        // x >= 5   (Surplus + Artificial)
+        let objective = Objective::maximize(quick_expr(vec![("x", 1.0)]));
+        let mut problem = LinearProblem::new("ConstrTest", objective);
+        
+        problem.add_constraint(Constraint::new(quick_expr(vec![("x", 1.0)]), Relation::LessOrEqual, 10.0)); // Fila 0
+        problem.add_constraint(Constraint::new(quick_expr(vec![("x", 1.0)]), Relation::GreaterOrEqual, 5.0)); // Fila 1
 
         let res = to_standard_form(&problem).unwrap();
         let matrix = &res.tableau.matrix;
-        let z_row = matrix.rows - 1;
+
+        // Fila 0: Slack normal (+1)
+        // El nombre interno debería ser _s_0
+        let s0_idx = res.reverse_map.iter().find(|(_, v)| *v == "_s_0").map(|(k, _)| *k).unwrap();
+        assert_eq!(matrix.get(0, s0_idx), 1.0);
+
+        // Fila 1: Surplus (-1) y Artificial (+1)
+        let sur1_idx = res.reverse_map.iter().find(|(_, v)| *v == "_surplus_1").map(|(k, _)| *k).unwrap();
+        let art1_idx = res.reverse_map.iter().find(|(_, v)| *v == "_art_1").map(|(k, _)| *k).unwrap();
         
-        let x_col = *res.var_map.get("x").unwrap();
-        let art_col = res.artificial_indices[0]; 
-        let rhs_col = matrix.cols - 1;
-
-        let art_val_z = matrix.get(z_row, art_col);
-        assert!((art_val_z).abs() < 1e-9);
-
-        let x_val_z = matrix.get(z_row, x_col);
-        assert!((x_val_z - (-1.0)).abs() < 1e-9);
-
-        let rhs_z = matrix.get(z_row, rhs_col);
-        assert!((rhs_z - (-10.0)).abs() < 1e-9);
+        assert_eq!(matrix.get(1, sur1_idx), -1.0);
+        assert_eq!(matrix.get(1, art1_idx), 1.0);
     }
 }
