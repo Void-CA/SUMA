@@ -12,10 +12,11 @@ use suma_codex::engine::executor::CodexExecutor;
 use suma_codex::domains::optimization::parser::OptimizationParser;
 use suma_codex::domains::boolean_algebra::parser::BooleanParser;
 use suma_codex::domains::linear_algebra::parser::LinearAlgebraParser;
+use suma_codex::domains::queries::parser::QueryParser; 
+
 use suma_codex::outputs::CodexOutput;
 
 pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
-    // LOG: Lectura de archivo (Solo verbose)
     if verbose {
         println!(">> Reading file: {:?}", path);
     }
@@ -25,63 +26,54 @@ pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
 
     // 1. Configurar Motor
     let mut engine = CodexEngine::new();
+    
+    // Registramos los dominios
     engine.register(OptimizationParser);
     engine.register(BooleanParser);
     engine.register(LinearAlgebraParser);
+    engine.register(QueryParser); 
 
     // 2. Parsing
     let start = Instant::now();
     let results = engine.process_file(&content);
     
-    // LOG: Tiempos (Solo verbose)
     if verbose {
         let duration = start.elapsed();
         println!(">> Parsing time: {:?}", duration);
     }
 
     if results.is_empty() {
-        // Warning: Esto sí es útil mostrarlo siempre, quizás en amarillo
         println!("{}", "[WARNING] No executable models found in the file.".yellow());
         return Ok(());
     }
 
     // 3. Ejecución
-    if verbose {
-        println!("-- Execution Start --");
-    }
+    if verbose { println!("-- Execution Start --"); }
     
     let mut console_observer = |label: &str, output: CodexOutput| {
-        // Imprimimos la etiqueta (ej: "Resultado", "Eigenvalues")
-        // Usamos print! sin ln! para que los escalares queden en la misma línea
         print!("➜ {}: ", label.blue().bold());
 
         match output {
-            // --- CASO 1: Escalar (Simple número) ---
             CodexOutput::LinAlgScalar(val) => {
-                // Sugerencia: Limitar decimales para limpieza visual
                 println!("{:.4}", val.to_string().green());
             },
-
-            // --- CASO 2: Matriz o Vector ---
             CodexOutput::LinAlgMatrix(mat) | CodexOutput::LinAlgVector(mat) => {
-                println!(); // Nueva línea antes de la matriz
+                println!();
                 println!("{:.2}", mat);
             },
-
-            // --- CASO 3: Mensajes Generales ---
+            // Manejamos Message por si acaso (para compatibilidad)
             CodexOutput::Message(msg) => {
-                println!("{}", msg.italic());
+                println!();
+                println!("{}", msg); // Quitamos italic para que se lea mejor en resultados grandes
             },
-
-            // --- CASO 4: Errores de Runtime ---
             CodexOutput::Error(err) => {
                 println!("{}", err.red().bold());
             }
+            // Agrega un catch-all por si agregamos nuevos tipos y olvidamos actualizar aquí
+            _ => println!("{:?}", output),
         }
     };
 
-    // 2. EJECUCIÓN
-    // Pasamos la clausura mutable al ejecutor
     CodexExecutor::execute(results, verbose, &mut console_observer);
     
     if verbose { println!("-- Execution End --"); }

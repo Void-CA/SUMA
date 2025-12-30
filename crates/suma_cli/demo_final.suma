@@ -27,3 +27,7 @@ Optimization "Maximizar_Produccion" {
         y >= 0
     }
 }
+
+query "Maximizar_Produccion" {
+    solve
+}
