@@ -23,7 +23,6 @@ pub struct OptimizationExecutor {
     models: HashMap<String, LinearProblem>,
 }
 
-
 impl OptimizationExecutor {
     pub fn new(verbose: bool) -> Self {
         Self { 
@@ -41,7 +40,7 @@ impl OptimizationExecutor {
         }
     }
 
-    // --- IMPLEMENTACIÓN DEL POLIMORFISMO ---
+    // --- IMPLEMENTACIÓN DEL POLIMORFISMO (Query Genérica) ---
     pub fn try_execute_query<F>(&mut self, query: &QueryBlock, observer: &mut F) -> bool
     where F: FnMut(&str, CodexOutput) 
     {
@@ -56,20 +55,19 @@ impl OptimizationExecutor {
 
         // 2. Iterar comandos genéricos
         for cmd in &query.commands {
-            // Mapeamos string ("solve") a lógica
             match cmd.action.as_str() {
                 "solve" | "optimize" | "run" => {
                     match solve_primal(problem) {
                         Ok(solution) => {
                             let mut out = String::new();
-                            writeln!(out, "--- Solución Óptima ---").unwrap();
-                            writeln!(out, "Estado: {:?}", solution.status).unwrap();
-                            writeln!(out, "Z = {:.4}", solution.objective_value).unwrap();
-                            writeln!(out, "Variables:").unwrap();
+                            // Formato Compacto: "Optimal (Z = 550.0000)"
+                            writeln!(out, "{:?} (Z = {:.4})", solution.status, solution.objective_value).unwrap();
+                            
                             for (k, v) in &solution.variables {
+                                // Opcional: mostrar solo si > 0.0001 si quieres limpiar más
                                 writeln!(out, "  {} = {:.4}", k, v).unwrap();
                             }
-                            observer("Solve Result", CodexOutput::Message(out));
+                            observer("Result", CodexOutput::Message(out));
                         },
                         Err(e) => observer("Error", CodexOutput::Error(format!("{}", e))),
                     }
@@ -78,7 +76,7 @@ impl OptimizationExecutor {
                     match solve_primal(problem) {
                         Ok(solution) => {
                             let mut out = String::new();
-                            writeln!(out, "--- Precios Sombra ---").unwrap();
+                            // Solo listamos valores, sin encabezado gigante
                             for (k, v) in &solution.shadow_prices {
                                 writeln!(out, "  {}: {:.4}", k, v).unwrap();
                             }
@@ -89,8 +87,8 @@ impl OptimizationExecutor {
                 },
                 "check_feasibility" => {
                      match solve_primal(problem) {
-                        Ok(_) => observer("Feasibility", CodexOutput::Message("El modelo es FACTIBLE.".into())),
-                        Err(_) => observer("Feasibility", CodexOutput::Message("El modelo es INFACTIBLE.".into())),
+                        Ok(_) => observer("Feasibility", CodexOutput::Message("Factible".into())),
+                        Err(_) => observer("Feasibility", CodexOutput::Message("Infactible".into())),
                     }
                 },
                 _ => {
@@ -117,9 +115,10 @@ impl OptimizationExecutor {
         // 2. Linearizar Objetivo
         let obj_expr = self.linearize(&model.objective)
             .map_err(|e| anyhow!("Error en objetivo: {}", e))?;
+        
+        // SIN TRUCOS: Pasamos el objetivo tal cual. El Core se encarga de invertir si es necesario.
         let objective = Objective { direction, expression: obj_expr };
         let mut problem = LinearProblem::new(&model.name, objective);
-        
         
         // 3. Procesar Restricciones
         for (i, c) in model.constraints.iter().enumerate() {
@@ -140,28 +139,20 @@ impl OptimizationExecutor {
             problem.add_constraint(Constraint::new(lin, relation, rhs).with_name(&format!("c{}", i)));
         }
 
-        // --- INICIO DEBUGGING ---
-        println!("\n[DEBUG ADAPTER] Modelo construído: '{}'", model.name);
-        println!("[DEBUG] Objetivo: {:?}", problem.objective);
-        println!("[DEBUG] Variables detectadas por Core: {:?}", problem.get_variables());
-        println!("[DEBUG] Restricciones:");
-        for c in &problem.constraints {
-            println!("   {:?}", c);
-        }
-
-
         // 4. GUARDAR EN EL HASHMAP
         self.models.insert(model.name.clone(), problem);
         
-        observer("System", CodexOutput::Message(format!("Modelo de optimización '{}' registrado.", model.name)));
+        if self.verbose {
+            observer("System", CodexOutput::Message(format!("Modelo de optimización '{}' registrado.", model.name)));
+        }
         Ok(())
     }
 
-    // --- Lógica de Query (Ejecutar modelo) ---
+    // --- Lógica de Query Específica (Legacy / Internal) ---
+    // Mantenemos esto por compatibilidad con el AST específico, pero con el mismo formato limpio.
     fn handle_query<F>(&mut self, query: &OptimizationQuery, observer: &mut F) -> Result<()>
     where F: FnMut(&str, CodexOutput) 
     {
-        // 1. Buscar el modelo en memoria
         let problem = self.models.get(&query.target_id)
             .ok_or_else(|| anyhow!("Modelo '{}' no encontrado. Defínelo antes de consultarlo.", query.target_id))?;
 
@@ -173,19 +164,15 @@ impl OptimizationExecutor {
                     let solution = solve_primal(problem).map_err(|e| anyhow!("{}", e))?;
                     
                     let mut out = String::new();
-                    writeln!(out, "--- Solución Óptima ---")?;
-                    writeln!(out, "Estado: {:?}", solution.status)?;
-                    writeln!(out, "Z = {:.4}", solution.objective_value)?;
-                    writeln!(out, "Variables:")?;
+                    writeln!(out, "{:?} (Z = {:.4})", solution.status, solution.objective_value)?;
                     for (k, v) in &solution.variables {
                         writeln!(out, "  {} = {:.4}", k, v)?;
                     }
-                    observer("Solve Result", CodexOutput::Message(out));
+                    observer("Result", CodexOutput::Message(out));
                 },
                 OptimizationRequest::ShadowPrices => {
                     let solution = solve_primal(problem).map_err(|e| anyhow!("{}", e))?;
                     let mut out = String::new();
-                    writeln!(out, "--- Precios Sombra (Sensibilidad) ---")?;
                     for (k, v) in &solution.shadow_prices {
                         writeln!(out, "  {}: {:.4}", k, v)?;
                     }
@@ -193,8 +180,8 @@ impl OptimizationExecutor {
                 },
                 OptimizationRequest::CheckFeasibility => {
                      match solve_primal(problem) {
-                        Ok(_) => observer("Feasibility", CodexOutput::Message("El modelo es FACTIBLE.".into())),
-                        Err(_) => observer("Feasibility", CodexOutput::Message("El modelo es INFACTIBLE.".into())),
+                        Ok(_) => observer("Feasibility", CodexOutput::Message("Factible".into())),
+                        Err(_) => observer("Feasibility", CodexOutput::Message("Infactible".into())),
                     }
                 }
             }
@@ -202,7 +189,7 @@ impl OptimizationExecutor {
         Ok(())
     }
 
-    // --- Helpers de Linearización (Requeridos) ---
+    // --- Helpers de Linearización ---
     fn linearize(&self, expr: &Expr) -> Result<LinearExpression> {
         let mut lin = LinearExpression::new();
         match expr {
