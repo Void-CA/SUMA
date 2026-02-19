@@ -2,8 +2,9 @@
 name = "suma_core"
 description = "A core library for suma_ulsa, used for academics methods and data processing."
 license = "MIT"
-version = "0.1.18"
+version = "0.1.19"
 edition = "2024"
+repository = "https://github.com/Void-CA/SUMA"
 
 [dependencies]
 csv = "1.4.0"
