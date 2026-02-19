@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use num_traits::{Num};
+use ordered_float::OrderedFloat;
 use crate::data_structures::graphs::{BaseGraph, Directed, GraphBase};
 use crate::data_structures::graphs::traits::WeightedGraph;
 use crate::data_structures::graphs::weighted::{IntoWeight, Weight};
@@ -7,7 +8,7 @@ use crate::formatting::error::ExportError;
 use crate::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 
 #[derive(Debug, Clone)]
-pub struct UndirectedWeightedGraph<N, E: Weight> {
+pub struct UndirectedWeightedGraph<N, E: Weight = OrderedFloat<f64>> {
     pub base: BaseGraph<N, E>,
     pub adjacency: HashMap<usize, HashSet<usize>>,
 }
@@ -36,6 +37,16 @@ impl<N, E: Weight> UndirectedWeightedGraph<N, E> {
         Some(total)
     }
 }
+
+impl<N> UndirectedWeightedGraph<N, OrderedFloat<f64>> {
+    pub fn new_float() -> Self {
+        Self {
+            base: BaseGraph::new(),
+            adjacency: HashMap::new(),
+        }
+    }
+}
+
 
 impl<N, E: Weight> GraphBase for UndirectedWeightedGraph<N, E> {
     type NodeId = usize;
@@ -99,18 +110,24 @@ impl<N: Default, E: Weight> UndirectedWeightedGraph<N, E> {
         self.base.add_node(data)
     }
 
-    pub fn add_edge_id(&mut self, from: usize, to: usize, weight: E) {
+    pub fn add_edge_id<W>(&mut self, from: usize, to: usize, weight: W) 
+    where W: IntoWeight<E>
+    {
+
         self.add_weighted_edge(from, to, weight.into_weight());
     }
 
-    pub fn add_edge(&mut self, from: N, to: N, weight: E) 
-    where N: PartialEq
+    pub fn add_edge<W>(&mut self, from: N, to: N, weight: W)
+    where
+        W: IntoWeight<E>,
+        N: PartialEq,
     {
         let from_id = self.base.get_or_add_node(from);
         let to_id = self.base.get_or_add_node(to);
 
         self.add_weighted_edge(from_id, to_id, weight.into_weight());
     }
+
 
     pub fn nodes(&self) -> Vec<usize> {
         self.base.nodes.keys().cloned().collect()
@@ -181,6 +198,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_ergonomics() {
+        let mut g = UndirectedWeightedGraph::new_float();
+        g.add_edge("A", "B", 1.0);
+        g.add_edge("B", "C", 3.0);
+    }
+
+    #[test]
     fn test_integer_weights() {
         let mut graph = UndirectedWeightedGraph::new();
         let node1 = graph.base.add_node("node1");
@@ -234,7 +258,7 @@ mod tests {
         let mut graph_f32: UndirectedWeightedGraph<&str, OrderedFloat<f64>> = UndirectedWeightedGraph::new();
         let n1 = graph_f32.base.add_node("A");
         let n2 = graph_f32.base.add_node("B");
-        graph_f32.add_edge_id(n1, n2, 1.5.into());
+        graph_f32.add_edge_id(n1, n2, 1.5);
         assert_eq!(graph_f32.edge_weight(n1, n2), Some(1.5.into()));
     }
 
