@@ -194,14 +194,27 @@ impl<N, E: Weight + std::fmt::Display> ToPlantUml for UndirectedWeightedGraph<N,
 
 #[cfg(test)]
 mod tests {
+    use num_traits::float;
     use ordered_float::OrderedFloat;
     use super::*;
-
+    use crate::{float_uwgraph, uwgraph};
+    
     #[test]
     fn test_ergonomics() {
-        let mut g = UndirectedWeightedGraph::new_float();
-        g.add_edge("A", "B", 1.0);
-        g.add_edge("B", "C", 3.0);
+        let mut g = float_uwgraph! {
+            A => {
+                B: 1.5,
+                C: 2.0
+            },
+            B => {
+                A: 1.5,
+                C: 3.0
+            },
+            C => {
+                A: 2.0,
+                B: 3.0
+            }
+        };
     }
 
     #[test]

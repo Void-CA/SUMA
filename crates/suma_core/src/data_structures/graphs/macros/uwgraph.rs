@@ -1,3 +1,5 @@
+use crate::data_structures::UndirectedWeightedGraph;
+
 #[macro_export]
 macro_rules! float_uwgraph {
     (
@@ -7,7 +9,7 @@ macro_rules! float_uwgraph {
             }
         ),* $(,)?
     ) => {{
-        let mut g = $crate::UndirectedWeightedGraph::new_float();
+        let mut g = UndirectedWeightedGraph::new_float();
 
         $(
             $(
@@ -41,7 +43,7 @@ macro_rules! uwgraph {
             }
         ),* $(,)?
     ) => {{
-        let mut g = $crate::UndirectedWeightedGraph::new();
+        let mut g = UndirectedWeightedGraph::new();
 
         $(
             $(
