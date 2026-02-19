@@ -78,6 +78,12 @@ impl<N, E: Weight> WeightedGraph for UndirectedWeightedGraph<N, E> {
 
 
 impl<N: Default, E: Weight> UndirectedWeightedGraph<N, E> {
+    pub fn get_id(&self, data: &N) -> Option<usize> 
+    where N: PartialEq
+    {
+        self.base.nodes.iter().find_map(|(id, d)| if *d == *data { Some(*id) } else { None })
+    }
+
     fn add_weighted_edge(&mut self, a: usize, b: usize, weight: E) {
         self.base.nodes.entry(a).or_insert_with(N::default);
         self.base.nodes.entry(b).or_insert_with(N::default);
@@ -121,6 +127,7 @@ impl<N: Default, E: Weight> UndirectedWeightedGraph<N, E> {
     pub fn edge_data(&self, from: usize, to: usize) -> Option<&E> {
         self.base.edges.get(&(from, to))
     }
+
 }
 
 impl<N, E: Weight + std::fmt::Display> ToDot for UndirectedWeightedGraph<N, E> {
