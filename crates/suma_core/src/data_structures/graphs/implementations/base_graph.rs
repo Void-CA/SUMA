@@ -37,6 +37,20 @@ impl<T, E> BaseGraph<T, E> {
     pub fn remove_edge(&mut self, from: usize, to: usize) -> Option<E> {
         self.edges.remove(&(from, to))
     }
+
+    pub fn get_or_add_node(&mut self, data: T) -> usize
+    where
+        T: PartialEq,
+    {
+        if let Some((&id, _)) = self.nodes.iter().find(|(_, d)| **d == data) {
+            id
+        } else {
+            self.add_node(data)
+        }
+    }
+
+
+
 }
 
 use std::hash::Hash;

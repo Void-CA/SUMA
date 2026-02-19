@@ -120,10 +120,10 @@ mod tests {
         type EdgeData = OrderedFloat<f64>;
         let mut graph: UndirectedWeightedGraph<i32, EdgeData> = UndirectedWeightedGraph::new();
 
-        graph.add_edge(1, 2, EdgeData::from(10.0));
-        graph.add_edge(1, 3, EdgeData::from(5.0));
-        graph.add_edge(2, 3, EdgeData::from(2.0));
-        graph.add_edge(1, 4, EdgeData::from(10.0));
+        graph.add_edge_id(1, 2, EdgeData::from(10.0));
+        graph.add_edge_id(1, 3, EdgeData::from(5.0));
+        graph.add_edge_id(2, 3, EdgeData::from(2.0));
+        graph.add_edge_id(1, 4, EdgeData::from(10.0));
 
         let distances = dijkstra_algorithm(&graph, 3);
 
@@ -146,10 +146,10 @@ mod tests {
         // 3 -- 2-- 2
         // 1 --10-- 4
 
-        graph.add_edge(1, 2, EdgeData::from(10.0));
-        graph.add_edge(1, 3, EdgeData::from(5.0));
-        graph.add_edge(3, 2, EdgeData::from(2.0));
-        graph.add_edge(1, 4, EdgeData::from(10.0));
+        graph.add_edge_id(1, 2, EdgeData::from(10.0));
+        graph.add_edge_id(1, 3, EdgeData::from(5.0));
+        graph.add_edge_id(3, 2, EdgeData::from(2.0));
+        graph.add_edge_id(1, 4, EdgeData::from(10.0));
 
         // Shortest path de 1 → 2 es: 1 → 3 → 2
         // Distancia = 5.0 + 2.0 = 7.0

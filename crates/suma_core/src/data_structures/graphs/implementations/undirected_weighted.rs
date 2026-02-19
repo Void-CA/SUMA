@@ -93,8 +93,17 @@ impl<N: Default, E: Weight> UndirectedWeightedGraph<N, E> {
         self.base.add_node(data)
     }
 
-    pub fn add_edge(&mut self, from: usize, to: usize, weight: E) {
+    pub fn add_edge_id(&mut self, from: usize, to: usize, weight: E) {
         self.add_weighted_edge(from, to, weight);
+    }
+
+    pub fn add_edge(&mut self, from: N, to: N, weight: E) 
+    where N: PartialEq
+    {
+        let from_id = self.base.get_or_add_node(from);
+        let to_id = self.base.get_or_add_node(to);
+
+        self.add_weighted_edge(from_id, to_id, weight);
     }
 
     pub fn nodes(&self) -> Vec<usize> {
@@ -170,7 +179,7 @@ mod tests {
         let node1 = graph.base.add_node("node1");
         let node2 = graph.base.add_node("node2");
 
-        graph.add_edge(node1, node2, 5); // Usando i32
+        graph.add_edge_id(node1, node2, 5); // Usando i32
 
         assert_eq!(graph.edge_weight(node1, node2), Some(5));
         assert_eq!(graph.edge_data(node1, node2), Some(&5));
@@ -182,7 +191,7 @@ mod tests {
         let node1 = graph.base.add_node("node1");
         let node2 = graph.base.add_node("node2");
 
-        graph.add_edge(node1, node2, OrderedFloat::from(3.5));
+        graph.add_edge_id(node1, node2, OrderedFloat::from(3.5));
 
         assert_eq!(graph.edge_weight(node1, node2), Some(3.5.into()));
     }
@@ -194,8 +203,8 @@ mod tests {
         let node2 = graph.base.add_node(2);
         let node3 = graph.base.add_node(3);
 
-        graph.add_edge(node1, node2, 2);
-        graph.add_edge(node2, node3, 3);
+        graph.add_edge_id(node1, node2, 2);
+        graph.add_edge_id(node2, node3, 3);
 
         let path = vec![node1, node2, node3];
         assert_eq!(graph.path_weight(&path), Some(5));
@@ -211,14 +220,14 @@ mod tests {
         let mut graph_i32: UndirectedWeightedGraph<&str, i32> = UndirectedWeightedGraph::new();
         let n1 = graph_i32.base.add_node("A");
         let n2 = graph_i32.base.add_node("B");
-        graph_i32.add_edge(n1, n2, 100);
+        graph_i32.add_edge_id(n1, n2, 100);
         assert_eq!(graph_i32.edge_weight(n1, n2), Some(100));
 
         // Test con f32
         let mut graph_f32: UndirectedWeightedGraph<&str, OrderedFloat<f64>> = UndirectedWeightedGraph::new();
         let n1 = graph_f32.base.add_node("A");
         let n2 = graph_f32.base.add_node("B");
-        graph_f32.add_edge(n1, n2, 1.5.into());
+        graph_f32.add_edge_id(n1, n2, 1.5.into());
         assert_eq!(graph_f32.edge_weight(n1, n2), Some(1.5.into()));
     }
 
@@ -228,9 +237,8 @@ mod tests {
         let node1 = graph.base.add_node("node1");
         let node2 = graph.base.add_node("node2");
 
-        graph.add_edge(node1, node2, 4);
+        graph.add_edge_id(node1, node2, 4);
 
         let dot_representation = graph.to_dot().unwrap();
-        println!("{}", dot_representation);
     }
 }
