@@ -706,7 +706,7 @@ dependencies = [
 
 [[package]]
 name = "suma_core"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "csv",
  "num-traits",
