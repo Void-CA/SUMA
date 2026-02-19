@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use num_traits::{Num};
 use crate::data_structures::graphs::{BaseGraph, Directed, GraphBase};
 use crate::data_structures::graphs::traits::WeightedGraph;
-use crate::data_structures::graphs::weighted::Weight;
+use crate::data_structures::graphs::weighted::{IntoWeight, Weight};
 use crate::formatting::error::ExportError;
 use crate::formatting::visualizable::{ToDot, ToMermaid, ToPlantUml};
 
@@ -94,7 +94,7 @@ impl<N: Default, E: Weight> UndirectedWeightedGraph<N, E> {
     }
 
     pub fn add_edge_id(&mut self, from: usize, to: usize, weight: E) {
-        self.add_weighted_edge(from, to, weight);
+        self.add_weighted_edge(from, to, weight.into_weight());
     }
 
     pub fn add_edge(&mut self, from: N, to: N, weight: E) 
@@ -103,7 +103,7 @@ impl<N: Default, E: Weight> UndirectedWeightedGraph<N, E> {
         let from_id = self.base.get_or_add_node(from);
         let to_id = self.base.get_or_add_node(to);
 
-        self.add_weighted_edge(from_id, to_id, weight);
+        self.add_weighted_edge(from_id, to_id, weight.into_weight());
     }
 
     pub fn nodes(&self) -> Vec<usize> {

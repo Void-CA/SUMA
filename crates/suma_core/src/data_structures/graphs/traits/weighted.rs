@@ -1,5 +1,6 @@
 use super::graph_base::GraphBase;
 use num_traits::{Num, Zero};
+use ordered_float::OrderedFloat;
 
 pub trait Weight: Copy + Ord + std::ops::Add<Output = Self> + num_traits::Zero+ Num {
     fn inf() -> Self;
@@ -11,12 +12,28 @@ impl Weight for i32 {
 }
 
 // Implementaciones para floats
-impl Weight for ordered_float::OrderedFloat<f32> {
-    fn inf() -> Self { ordered_float::OrderedFloat(f32::INFINITY) }
+impl Weight for OrderedFloat<f32> {
+    fn inf() -> Self { OrderedFloat(f32::INFINITY) }
 }
 
-impl Weight for ordered_float::OrderedFloat<f64> {
-    fn inf() -> Self { ordered_float::OrderedFloat(f64::INFINITY) }
+impl Weight for OrderedFloat<f64> {
+    fn inf() -> Self { OrderedFloat(f64::INFINITY) }
+}
+
+pub trait IntoWeight<E> {
+    fn into_weight(self) -> E;
+}
+
+impl IntoWeight<OrderedFloat<f64>> for f64 {
+    fn into_weight(self) -> OrderedFloat<f64> { OrderedFloat::from(self) }
+}
+
+impl IntoWeight<OrderedFloat<f32>> for f32 {
+    fn into_weight(self) -> OrderedFloat<f32> { OrderedFloat::from(self) }
+    
+}
+impl<E: Copy> IntoWeight<E> for E {
+    fn into_weight(self) -> E { self }
 }
 
 
