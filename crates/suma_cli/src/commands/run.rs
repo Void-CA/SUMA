@@ -4,15 +4,18 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use colored::*;
 
-// Imports del Motor
 use suma_codex::CodexEngine;
 use suma_codex::engine::executor::CodexExecutor;
 
-// Imports de los Parsers (Plugins)
+// Domain parsers and executors
 use suma_codex::domains::optimization::parser::OptimizationParser;
 use suma_codex::domains::boolean_algebra::parser::BooleanParser;
 use suma_codex::domains::linear_algebra::parser::LinearAlgebraParser;
 use suma_codex::domains::queries::parser::QueryParser; 
+
+use suma_codex::engine::adapters::linear_algebra::LinearAlgebraExecutor;
+use suma_codex::engine::adapters::optimization::OptimizationExecutor;
+use suma_codex::engine::adapters::boolean_algebra::BooleanExecutor;
 
 use suma_codex::outputs::CodexOutput;
 
@@ -24,14 +27,13 @@ pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Could not read file '{}'", path.display()))?;
 
-    // 1. Configurar Motor
+    // 1. Configure engine — register all domains (parser + executor in one call)
     let mut engine = CodexEngine::new();
-    
-    // Registramos los dominios
-    engine.register(OptimizationParser);
-    engine.register(BooleanParser);
-    engine.register(LinearAlgebraParser);
-    engine.register(QueryParser); 
+
+    engine.register_domain(OptimizationParser, OptimizationExecutor::new(verbose));
+    engine.register_domain(BooleanParser, BooleanExecutor::new(verbose));
+    engine.register_domain(LinearAlgebraParser, LinearAlgebraExecutor::new(verbose));
+    engine.register_domain(QueryParser, LinearAlgebraExecutor::new(verbose));
 
     // 2. Parsing
     let start = Instant::now();
@@ -47,7 +49,7 @@ pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
         return Ok(());
     }
 
-    // 3. Ejecución
+    // 3. Execution — registry lives inside engine.executors
     if verbose { println!("-- Execution Start --"); }
     
     let mut console_observer = |label: &str, output: CodexOutput| {
@@ -61,21 +63,19 @@ pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
                 println!();
                 println!("{:.2}", mat);
             },
-            // Manejamos Message por si acaso (para compatibilidad)
             CodexOutput::Message(msg) => {
                 println!();
-                println!("{}", msg); // Quitamos italic para que se lea mejor en resultados grandes
+                println!("{}", msg);
             },
             CodexOutput::Error(err) => {
                 println!("{}", err.red().bold());
             }
-            // Catch-all por si agregamos nuevos tipos y olvidamos actualizar aquí
             #[allow(unreachable_patterns)]
             _ => println!("{:?}", output),
         }
     };
 
-    CodexExecutor::execute(results, verbose, &mut console_observer);
+    CodexExecutor::execute(&mut engine.executors, results, verbose, &mut console_observer);
     
     if verbose { println!("-- Execution End --"); }
 

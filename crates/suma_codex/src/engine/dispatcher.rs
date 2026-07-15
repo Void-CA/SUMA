@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use super::executors::{DomainExecutor, ExecutorRegistry};
 use crate::parsers::traits::DomainParser;
 use crate::parsers::codex_parser::{CodexParser, Rule};
 use crate::ast::CodexResult;
@@ -8,6 +9,7 @@ use pest::Parser;
 pub struct CodexEngine {
     parsers: Vec<Box<dyn DomainParser>>,
     routes: HashMap<String, usize>,
+    pub executors: ExecutorRegistry,
 }
 
 impl CodexEngine {
@@ -15,6 +17,7 @@ impl CodexEngine {
         Self {
             parsers: Vec::new(),
             routes: HashMap::new(),
+            executors: ExecutorRegistry::new(),
         }
     }
 
@@ -25,6 +28,21 @@ impl CodexEngine {
             self.routes.insert(kw.to_string(), index);
         }
         self.parsers.push(Box::new(parser));
+    }
+
+    /// Register a domain executor for runtime dispatch.
+    pub fn register_executor<E: DomainExecutor + 'static>(&mut self, executor: E) {
+        self.executors.register(executor);
+    }
+
+    /// Register both a parser and an executor for a domain in one call.
+    pub fn register_domain<P, E>(&mut self, parser: P, executor: E)
+    where
+        P: DomainParser + 'static,
+        E: DomainExecutor + 'static,
+    {
+        self.register(parser);
+        self.register_executor(executor);
     }
 
     pub fn process_file(&self, content: &str) -> Vec<CodexResult> {

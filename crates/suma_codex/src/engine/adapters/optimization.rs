@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use crate::ast::CodexResult;
+use crate::engine::executors::DomainExecutor;
 use crate::error::CodexError;
 
 // Core Imports
@@ -250,5 +252,25 @@ impl OptimizationExecutor {
             let current = *dest.coefficients.get(var).unwrap_or(&0.0);
             dest.add_term(var, current + (coeff * scale));
         }
+    }
+}
+
+impl DomainExecutor for OptimizationExecutor {
+    fn execute(&mut self, result: &CodexResult, observer: &mut dyn FnMut(&str, CodexOutput)) -> bool {
+        match result {
+            CodexResult::Optimization(block) => {
+                let mut cb = |label: &str, out: CodexOutput| observer(label, out);
+                if let Err(e) = self.execute(block, &mut cb) {
+                    observer("Error", CodexOutput::Error(format!("{}", e)));
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn try_execute_query(&mut self, query: &QueryBlock, observer: &mut dyn FnMut(&str, CodexOutput)) -> bool {
+        let mut cb = |label: &str, out: CodexOutput| observer(label, out);
+        self.try_execute_query(query, &mut cb)
     }
 }

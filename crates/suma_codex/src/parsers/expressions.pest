@@ -1,0 +1,11 @@
+// ── Shared arithmetic expression sub-language ──
+// Import in domain grammars: import parsers::expressions::*
+
+expression = { term ~ (add_op ~ term)* }
+term       = { unary ~ (mul_op ~ unary)* }
+unary      = { neg_op? ~ atom }
+atom       = { number | ident | "(" ~ expression ~ ")" }
+
+add_op = { "+" | "-" }
+mul_op = { "*" | "/" }
+neg_op = { "-" }

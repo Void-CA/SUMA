@@ -1,10 +1,8 @@
+// ── Shared primitives for all domain grammars ──
+
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
 
-query_block = { "query" ~ target_id ~ "{" ~ command+ ~ "}" }
-target_id   = { string_lit }
-command     = { ident ~ alias_clause? }
-alias_clause = { ^"as" ~ ident }
-
 ident      = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number     = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? }

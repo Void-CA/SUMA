@@ -1,4 +1,7 @@
+use crate::ast::CodexResult;
 use crate::domains::boolean_algebra::ast::{BoolExpr, BooleanModel};
+use crate::domains::queries::ast::QueryBlock;
+use crate::engine::executors::DomainExecutor;
 use crate::error::CodexError;
 use crate::outputs::CodexOutput;
 
@@ -18,6 +21,25 @@ impl BooleanExecutor {
             format!("Boolean expression '{}' registered with {} sub-expressions", name, count_nodes(&model.root))
         ));
         Ok(())
+    }
+}
+
+impl DomainExecutor for BooleanExecutor {
+    fn execute(&mut self, result: &CodexResult, observer: &mut dyn FnMut(&str, CodexOutput)) -> bool {
+        match result {
+            CodexResult::Boolean(model) => {
+                let mut cb = |label: &str, out: CodexOutput| observer(label, out);
+                if let Err(e) = self.execute(model, &mut cb) {
+                    observer("Error", CodexOutput::Error(format!("{}", e)));
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn try_execute_query(&mut self, _query: &QueryBlock, _observer: &mut dyn FnMut(&str, CodexOutput)) -> bool {
+        false // Boolean domain doesn't support cross-domain queries yet
     }
 }
 

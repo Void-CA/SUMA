@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use colored::*;
 
+use crate::ast::CodexResult;
 use crate::error::CodexError;
+use crate::engine::executors::DomainExecutor;
 use suma_core::linear_algebra::{DenseMatrix, systems::LinearSystem};
 use crate::domains::linear_algebra::ast::{LinearAlgebraBlock, LinAlgStmt, SystemDef, QueryDef, Capability};
 
 use crate::domains::queries::ast::QueryBlock;
-// Importamos el contrato de salida
 use crate::outputs::CodexOutput;
 
 pub struct LinearAlgebraExecutor {
@@ -176,5 +177,25 @@ impl LinearAlgebraExecutor {
             }
         }
         Ok(())
+    }
+}
+
+impl DomainExecutor for LinearAlgebraExecutor {
+    fn execute(&mut self, result: &CodexResult, observer: &mut dyn FnMut(&str, CodexOutput)) -> bool {
+        match result {
+            CodexResult::LinearAlgebra(block) => {
+                let mut cb = |label: &str, out: CodexOutput| observer(label, out);
+                if let Err(e) = self.execute(block, &mut cb) {
+                    observer("Error", CodexOutput::Error(format!("{}", e)));
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn try_execute_query(&mut self, query: &QueryBlock, observer: &mut dyn FnMut(&str, CodexOutput)) -> bool {
+        let mut cb = |label: &str, out: CodexOutput| observer(label, out);
+        self.try_execute_query(query, &mut cb)
     }
 }

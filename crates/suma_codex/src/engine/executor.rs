@@ -1,90 +1,49 @@
 use crate::ast::CodexResult;
+use crate::engine::executors::ExecutorRegistry;
 use crate::outputs::CodexOutput;
-
-// Importamos los adaptadores
-// Asegúrate de que estos módulos sean pub en 'src/engine/adapters/mod.rs'
-use crate::engine::adapters::linear_algebra::LinearAlgebraExecutor;
-use crate::engine::adapters::optimization::OptimizationExecutor;
-use crate::engine::adapters::boolean_algebra::BooleanExecutor;
 
 pub struct CodexExecutor;
 
 impl CodexExecutor {
-    /// Ejecuta una lista de resultados (Bloques parseados).
-    /// 
-    /// # Arquitectura
-    /// Instancia los adaptadores con memoria (Stateful) antes del bucle.
-    /// Itera sobre los resultados y despacha según el tipo.
-    /// Para las Queries, utiliza un patrón de "Cadena de Responsabilidad".
-    pub fn execute<F>(results: Vec<CodexResult>, verbose: bool, mut observer: F) 
-    where F: FnMut(&str, CodexOutput) 
+    /// Execute parsed blocks using the provided executor registry.
+    /// The registry owns all domain executors and dispatches based on result type.
+    pub fn execute<F>(
+        registry: &mut ExecutorRegistry,
+        results: Vec<CodexResult>,
+        verbose: bool,
+        mut observer: F,
+    ) where
+        F: FnMut(&str, CodexOutput),
     {
         if verbose {
             println!(">> Executor: Orchestrating {} blocks...", results.len());
         }
 
-        // --- 1. PERSISTENCIA DE ESTADO ---
-        // Instanciamos los adaptadores FUERA del loop.
-        // Esto permite que una definición en el paso 1 sea recordada en el paso 5.
-        let mut lin_alg = LinearAlgebraExecutor::new(verbose);
-        let mut opt = OptimizationExecutor::new(verbose);
-        let mut bool_exec = BooleanExecutor::new(verbose);
-
-        // --- 2. BUCLE DE EJECUCIÓN ---
-        for (_i, result) in results.iter().enumerate() {
-            if verbose {
-                // print!("   [{}] ", i + 1); // Opcional: log de paso
-            }
-
+        for result in &results {
             match result {
-                // --- DEFINICIONES DE DOMINIO ---
-                
-                CodexResult::LinearAlgebra(block) => {
-                    if verbose { println!("[LINEAR ALGEBRA] Processing definition"); }
-                    // Pasamos referencia &block
-                    if let Err(e) = lin_alg.execute(block, &mut observer) {
-                        observer("Runtime Error", CodexOutput::Error(format!("{}", e)));
-                    }
-                },
-
-                CodexResult::Optimization(block) => {
-                    if verbose { println!("[OPTIMIZATION] Processing definition"); }
-                    // Pasamos referencia &block
-                    if let Err(e) = opt.execute(block, &mut observer) {
-                        observer("Optimization Error", CodexOutput::Error(format!("{}", e)));
-                    }
-                },
-
-                CodexResult::Boolean(model) => {
-                    if verbose { println!("[BOOLEAN] Processing definition: {:?}", model.name); }
-                    if let Err(e) = bool_exec.execute(model, &mut observer) {
-                        observer("Runtime Error", CodexOutput::Error(format!("{}", e)));
-                    }
-                },
-
-                // --- QUERY GENÉRICA (POLIMORFISMO) ---
-                
                 CodexResult::Query(query) => {
-                    if verbose { println!("[QUERY] Broadcasting query for '{}'", query.target_id); }
-
-                    // Estrategia "Broadcast" / "Chain of Responsibility"
-                    // Le preguntamos a cada adaptador si reconoce el ID.
-                    
-                    // 1. Preguntar a Álgebra Lineal
-                    let handled = lin_alg.try_execute_query(query, &mut observer);
-                    
-                    // 2. Preguntar a Optimización (solo si no fue atendido)
-                    let handled = if !handled {
-                        opt.try_execute_query(query, &mut observer)
-                    } else {
-                        true 
-                    };
-
-                    // 3. Si nadie respondió
-                    if !handled {
-                        observer("Error", CodexOutput::Error(
-                            format!("Identifier '{}' not found in any active domain (LinearAlgebra, Optimization).", query.target_id)
-                        ));
+                    if verbose {
+                        println!("[QUERY] Broadcasting query for '{}'", query.target_id);
+                    }
+                    if !registry.execute_query(query, &mut observer) {
+                        observer(
+                            "Error",
+                            CodexOutput::Error(format!(
+                                "Identifier '{}' not found in any active domain.",
+                                query.target_id
+                            )),
+                        );
+                    }
+                }
+                _ => {
+                    if !registry.execute(result, &mut observer) {
+                        observer(
+                            "Error",
+                            CodexOutput::Error(format!(
+                                "Unknown block type: {:?}",
+                                std::mem::discriminant(result)
+                            )),
+                        );
                     }
                 }
             }
@@ -97,26 +56,36 @@ impl CodexExecutor {
 // ==========================================
 #[cfg(test)]
 mod tests {
+    use crate::engine::executors::ExecutorRegistry;
     use crate::CodexEngine;
     use super::*;
 
-    // Imports de Parsers (Para el setup del test)
     use crate::domains::optimization::parser::OptimizationParser;
     use crate::domains::boolean_algebra::BooleanParser;
     use crate::domains::linear_algebra::parser::LinearAlgebraParser;
-    // Importante: Importar el parser de Queries globales
     use crate::domains::queries::parser::QueryParser;
+
+    use crate::engine::adapters::linear_algebra::LinearAlgebraExecutor;
+    use crate::engine::adapters::optimization::OptimizationExecutor;
+    use crate::engine::adapters::boolean_algebra::BooleanExecutor;
 
     fn engine_setup() -> CodexEngine {
         let mut engine = CodexEngine::new();
         engine.register(OptimizationParser);
         engine.register(BooleanParser);
         engine.register(LinearAlgebraParser);
-        engine.register(QueryParser); // <--- ¡No olvidar registrar este!
+        engine.register(QueryParser);
         engine
     }
 
-    // Helper para simular un CLI en los tests
+    fn registry_setup(verbose: bool) -> ExecutorRegistry {
+        let mut reg = ExecutorRegistry::new();
+        reg.register(LinearAlgebraExecutor::new(verbose));
+        reg.register(OptimizationExecutor::new(verbose));
+        reg.register(BooleanExecutor::new(verbose));
+        reg
+    }
+
     fn test_observer(alias: &str, output: CodexOutput) {
         println!("[TEST OUTPUT] {}: {:?}", alias, output);
     }
@@ -124,8 +93,8 @@ mod tests {
     #[test]
     fn test_linear_algebra_execution() {
         let engine = engine_setup();
-        
-        // Nótese que usamos 'query' (genérico)
+        let mut registry = registry_setup(true);
+
         let code = r#"
         LinearSystem "Sistema_1" {
             coefficients: [1, 2; 3, 4]
@@ -140,8 +109,8 @@ mod tests {
 
         println!("\n--- TEST: LINEAR ALGEBRA FLOW ---");
         let results = engine.process_file(code);
-        
-        CodexExecutor::execute(results, true, |alias, output| {
+
+        CodexExecutor::execute(&mut registry, results, true, |alias, output| {
             test_observer(alias, output);
         });
     }
@@ -149,8 +118,8 @@ mod tests {
     #[test]
     fn test_optimization_pipeline_full() {
         let engine = engine_setup();
-        
-        // CORRECCIÓN: Usamos 'query', no 'run'
+        let mut registry = registry_setup(true);
+
         let code = r#"
         Optimization "Maximizar_Producción" {
             maximize 30*x + 50*y
@@ -167,52 +136,53 @@ mod tests {
 
         println!("\n--- TEST: PIPELINE DE OPTIMIZACIÓN ---");
         let results = engine.process_file(code);
-        
-        // Bandera para evitar falsos positivos
+
         let mut solved = false;
 
-        CodexExecutor::execute(results, true, |alias, output| {
+        CodexExecutor::execute(&mut registry, results, true, |alias, output| {
             println!("[TEST OUT] {}: {:?}", alias, output);
-            
+
             let txt = match output {
                 CodexOutput::Message(s) => s,
-                CodexOutput::Error(e) => panic!("Error inesperado: {}", e),
+                CodexOutput::Error(e) => panic!("Unexpected error: {}", e),
                 _ => String::new(),
             };
 
             if alias == "System" {
-                assert!(txt.contains("registrado"), "Falló la definición");
+                assert!(txt.contains("registrado"), "Definition failed");
             }
-            
+
             if alias == "Solve Result" {
-                solved = true; // ¡Marcamos que pasamos por aquí!
-                assert!(txt.contains("550"), "El óptimo debe ser 550. Recibido: \n{}", txt);
-                assert!(txt.contains("x") && txt.contains("10"), "x debería ser 10");
+                solved = true;
+                assert!(txt.contains("550"), "Optimum should be 550. Got: \n{}", txt);
+                assert!(txt.contains("x") && txt.contains("10"), "x should be 10");
             }
         });
 
-        assert!(solved, "El test terminó sin resolver el problema (nunca recibió 'Solve Result')");
+        assert!(solved, "Test finished without solving the problem (never received 'Solve Result')");
     }
 
     #[test]
     fn test_missing_artifact_error() {
         let engine = engine_setup();
+        let mut registry = registry_setup(true);
+
         let code = r#"
         query "Sistema_Fantasma" {
             solve
         }
         "#;
 
-        println!("\n--- TEST: ARTEFACTO NO ENCONTRADO ---");
+        println!("\n--- TEST: MISSING ARTIFACT ---");
         let results = engine.process_file(code);
-        
+
         let mut error_caught = false;
-        CodexExecutor::execute(results, true, |alias, output| {
+        CodexExecutor::execute(&mut registry, results, true, |alias, output| {
             if let CodexOutput::Error(msg) = output {
-                println!("[TEST OK] Error capturado correctamente: {}: {}", alias, msg);
+                println!("[TEST OK] Error caught: {}: {}", alias, msg);
                 error_caught = true;
             }
         });
-        assert!(error_caught, "El executor debería haber reportado un error de 'no encontrado'");
+        assert!(error_caught, "Executor should have reported a 'not found' error");
     }
 }
