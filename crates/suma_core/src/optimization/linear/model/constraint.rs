@@ -62,13 +62,12 @@ impl Constraint {
         // Si no lo tiene, deberíamos agregarlo en su implementación.
         let val = self.lhs.evaluate(var_values);
         
-        // Usamos un epsilon pequeño para evitar errores de punto flotante
-        let epsilon = 1e-9;
+        use crate::constants::CONSTRAINT_TOLERANCE;
 
         match self.relation {
-            Relation::LessOrEqual => val <= self.rhs + epsilon,
-            Relation::GreaterOrEqual => val >= self.rhs - epsilon,
-            Relation::Equal => (val - self.rhs).abs() < epsilon,
+            Relation::LessOrEqual => val <= self.rhs + CONSTRAINT_TOLERANCE,
+            Relation::GreaterOrEqual => val >= self.rhs - CONSTRAINT_TOLERANCE,
+            Relation::Equal => (val - self.rhs).abs() < CONSTRAINT_TOLERANCE,
         }
     }
 }

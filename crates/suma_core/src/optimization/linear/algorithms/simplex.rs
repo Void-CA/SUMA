@@ -1,11 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use crate::constants::{EPSILON, INFEASIBILITY_TOLERANCE, MAX_SIMPLEX_ITERATIONS};
 use crate::optimization::linear::model::{LinearProblem, OptimizationDirection};
 use crate::optimization::linear::internal::tableau::SimplexTableau;
 use crate::optimization::linear::transformers::standard_form::{to_standard_form, StandardFormResult};
-use crate::optimization::linear::error::{OptimizationResult, LinearOptimizationError, Solution, OptimizationStatus}; // Nuevo Error
-
-const MAX_ITERATIONS: usize = 10000;
-const EPSILON: f64 = 1e-9;
+use crate::optimization::linear::error::{OptimizationResult, LinearOptimizationError, Solution, OptimizationStatus};
 
 pub fn solve_primal(problem: &LinearProblem) -> OptimizationResult {
     // 1. Convertir modelo
@@ -28,22 +26,23 @@ pub fn solve_primal(problem: &LinearProblem) -> OptimizationResult {
     if has_artificial_vars {
         run_simplex_phase(&mut tableau, None)?;
         let w_val = tableau.matrix.get(tableau.matrix.rows - 1, tableau.matrix.cols - 1).unwrap();
-        if w_val.abs() > 1e-5 { // Usar abs() por seguridad
+        if w_val.abs() > INFEASIBILITY_TOLERANCE {
             return Err(LinearOptimizationError::Infeasible);
         }
         prepare_phase_2(&mut tableau, &original_objective_row, &artificial_indices);
     }
 
     // 3. FASE 2 (Optimizar)
-    let ignore_list = if has_artificial_vars { Some(&artificial_indices) } else { None };
+    let ignore_set: HashSet<usize> = artificial_indices.iter().copied().collect();
+    let ignore_list = if has_artificial_vars { Some(&ignore_set) } else { None };
     run_simplex_phase(&mut tableau, ignore_list)?;
 
     // 4. Extraer Resultados
     let mut solution = extract_solution(&tableau, &reverse_map, &constraint_col_map);
     
-    // 5. AJUSTE DE SIGNOS (LA CORRECCIÓN)
-    // Si el problema original era MAXIMIZAR, invertimos el signo del resultado final.
-    // (Porque to_standard_form invirtió la entrada, el solver nos dio -Z).
+    // 5. SIGN ADJUSTMENT
+    // The solver always minimizes. For a minimization problem, the result is -Z,
+    // so we negate it back to get the true objective value.
     if is_minimization {
         // Invertimos valor objetivo (-550 -> 550)
         solution.objective_value = -solution.objective_value;
@@ -59,12 +58,12 @@ pub fn solve_primal(problem: &LinearProblem) -> OptimizationResult {
 
 fn run_simplex_phase(
     tableau: &mut SimplexTableau, 
-    ignore_cols: Option<&Vec<usize>>
+    ignore_cols: Option<&HashSet<usize>>
 ) -> Result<(), LinearOptimizationError> {
     let mut iterations = 0;
 
     loop {
-        if iterations >= MAX_ITERATIONS {
+        if iterations >= MAX_SIMPLEX_ITERATIONS {
             return Err(LinearOptimizationError::MaxIterationsReached);
         }
         iterations += 1;
@@ -122,7 +121,7 @@ fn prepare_phase_2(
 
 // --- Helpers ---
 
-fn is_optimal(tableau: &SimplexTableau, ignore_cols: Option<&Vec<usize>>) -> bool {
+fn is_optimal(tableau: &SimplexTableau, ignore_cols: Option<&HashSet<usize>>) -> bool {
     let last_row_idx = tableau.matrix.rows - 1;
     for j in 0..(tableau.matrix.cols - 1) { 
         if let Some(ignored) = ignore_cols {
@@ -135,7 +134,7 @@ fn is_optimal(tableau: &SimplexTableau, ignore_cols: Option<&Vec<usize>>) -> boo
     true
 }
 
-fn select_entering_variable(tableau: &SimplexTableau, ignore_cols: Option<&Vec<usize>>) -> Option<usize> {
+fn select_entering_variable(tableau: &SimplexTableau, ignore_cols: Option<&HashSet<usize>>) -> Option<usize> {
     let last_row_idx = tableau.matrix.rows - 1;
     let mut min_val = -EPSILON;
     let mut entering_col = None;

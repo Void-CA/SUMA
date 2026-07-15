@@ -56,15 +56,13 @@ impl BooleanExpr {
     
     /// Evalúa la expresión permitiendo valores por defecto para variables faltantes
     pub fn evaluate_with_defaults(&self, values: &HashMap<&str, bool>, default: bool) -> bool {
-        let mut complete_values = values.clone();
-        
-        // Agregar valores por defecto para variables faltantes
+        let mut complete_values: HashMap<&str, bool> = HashMap::with_capacity(self.variables.len());
         for var in &self.variables {
-            if !complete_values.contains_key(var.as_str()) {
-                complete_values.insert(var, default);
-            }
+            complete_values.insert(var.as_str(), default);
         }
-        
+        for (k, v) in values {
+            complete_values.insert(k, *v);
+        }
         self.ast.evaluate(&complete_values)
     }
     

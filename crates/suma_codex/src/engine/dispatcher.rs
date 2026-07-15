@@ -1,17 +1,9 @@
 use std::collections::HashMap;
-use std::any::Any;
-
 
 use crate::parsers::traits::DomainParser;
 use crate::parsers::codex_parser::{CodexParser, Rule};
 use crate::ast::CodexResult;
 use pest::Parser;
-
-// Importamos los Modelos de los dominios
-use crate::domains::queries::ast::QueryBlock;
-use crate::domains::boolean_algebra::BooleanModel;
-use crate::domains::optimization::ast::OptimizationBlock;
-use crate::domains::linear_algebra::ast::LinearAlgebraBlock;
 
 pub struct CodexEngine {
     parsers: Vec<Box<dyn DomainParser>>,
@@ -57,46 +49,19 @@ impl CodexEngine {
     }
 
     fn handle_domain_block(&self, pair: pest::iterators::Pair<Rule>, results: &mut Vec<CodexResult>) {
-        // 1. CAPTURAR EL TEXTO COMPLETO
         let full_text = pair.as_str(); 
-        
-        // 2. IDENTIFICAR LA KEYWORD PARA EL RUTEO
-        // Si viene 'query "X" {...}', la keyword es "query".
-        // Como registramos "query" en LinearAlgebraParser, el ruteo funciona solo.
         let mut parts = pair.clone().into_inner();
         let keyword = parts.next().unwrap().as_str();
 
-        // 3. RUTEO
         if let Some(&index) = self.routes.get(keyword) {
             let parser = &self.parsers[index];
             
             match parser.parse_domain(full_text) { 
-                Ok(any_ast) => {
-                    self.convert_and_store(any_ast, results)
-                }
-                Err(e) => println!("Error en bloque '{}': {}", keyword, e),
+                Ok(result) => results.push(result),
+                Err(e) => println!("Error in block '{}': {}", keyword, e),
             }
         } else {
-            eprintln!("Advertencia: Palabra clave desconocida '{}'. ¿Olvidaste registrar el dominio?", keyword);
-        }
-    }
-
-    fn convert_and_store(&self, any_ast: Box<dyn Any>, results: &mut Vec<CodexResult>) {
-        if let Some(model) = any_ast.downcast_ref::<OptimizationBlock>() {
-            results.push(CodexResult::Optimization(model.clone()));
-        } 
-        else if let Some(model) = any_ast.downcast_ref::<BooleanModel>() {
-            results.push(CodexResult::Boolean(model.clone()));
-        }
-        // CAMBIO CRÍTICO: Downcast al nuevo LinearAlgebraBlock
-        else if let Some(block) = any_ast.downcast_ref::<LinearAlgebraBlock>() {
-            results.push(CodexResult::LinearAlgebra(block.clone()));
-        }
-        else if let Some(block) = any_ast.downcast_ref::<QueryBlock>() {
-            results.push(CodexResult::Query(block.clone()));
-        }
-        else {
-            eprintln!("Error: Tipo de AST desconocido al convertir y almacenar.");
+            eprintln!("Warning: Unknown keyword '{}'. Did you forget to register the domain?", keyword);
         }
     }
 }

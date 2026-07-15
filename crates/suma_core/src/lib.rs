@@ -4,6 +4,7 @@
 #![deny(unreachable_patterns)]
 #![warn(unused_imports, unused_variables, dead_code)]
 
+pub mod constants;
 pub mod boolean_algebra;
 pub mod data_structures;
 pub mod conversions;

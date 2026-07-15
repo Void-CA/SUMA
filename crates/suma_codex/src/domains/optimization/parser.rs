@@ -1,5 +1,6 @@
 use pest::Parser;
 use pest_derive::Parser;
+use crate::ast::CodexResult;
 use crate::error::CodexError;
 use crate::parsers::traits::{DomainParser, DomainResult};
 use super::ast::{
@@ -33,7 +34,7 @@ impl DomainParser for OptimizationParser {
                 Rule::definition => {
                     let model = parse_definition(inner);
                     // Empaquetamos en el Enum de bloque
-                    Ok(Box::new(OptimizationBlock::Definition(model)))
+                    Ok(CodexResult::Optimization(OptimizationBlock::Definition(model)))
                 },
                 _ => Err(CodexError::ParseError { domain: "optimization".into(), message: format!("Unexpected rule: {:?}", inner.as_rule()) })
             }

@@ -1,5 +1,6 @@
 use pest::Parser;
 use pest_derive::Parser;
+use crate::ast::CodexResult;
 use crate::error::CodexError;
 use crate::parsers::traits::{DomainParser, DomainResult};
 use super::ast::{QueryBlock, QueryCommand};
@@ -47,7 +48,7 @@ impl DomainParser for QueryParser {
                 commands.push(QueryCommand { action, alias });
             }
 
-            Ok(Box::new(QueryBlock { target_id, commands }))
+            Ok(CodexResult::Query(QueryBlock { target_id, commands }))
         } else {
             Err(CodexError::ParseError { domain: "queries".into(), message: "Invalid query".into() })
         }

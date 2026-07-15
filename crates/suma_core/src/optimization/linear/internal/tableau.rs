@@ -1,3 +1,4 @@
+use crate::constants::ZERO_TOLERANCE;
 use crate::linear_algebra::matrices::implementations::dense::DenseMatrix;
 
 #[derive(Debug, Clone)]
@@ -22,9 +23,8 @@ impl SimplexTableau {
         let pivot_val = self.matrix.get(pivot_row, pivot_col).unwrap();
 
         // Seguridad numérica básica: si el pivote es casi cero, explotaría
-        if pivot_val.abs() < 1e-12 {
-            // En un sistema real, aquí intentaríamos re-condicionar la matriz
-            panic!("Error numérico: Pivote cercano a cero en ({}, {})", pivot_row, pivot_col);
+        if pivot_val.abs() < ZERO_TOLERANCE {
+            panic!("Numerical error: Near-zero pivot at ({}, {})", pivot_row, pivot_col);
         }
 
         // 2. Normalizar la fila pivote (hacer que el pivote sea 1.0)
@@ -41,7 +41,7 @@ impl SimplexTableau {
                 let factor = self.matrix.get(i, pivot_col).unwrap();
                 
                 // Si el factor ya es 0, no necesitamos hacer nada (optimización de dispersión)
-                if factor.abs() > 1e-12 {
+                if factor.abs() > ZERO_TOLERANCE {
                     for j in 0..cols {
                         let row_val_pivot = self.matrix.get(pivot_row, j).unwrap(); // Valor normalizado
                         let current_val = self.matrix.get(i, j).unwrap();

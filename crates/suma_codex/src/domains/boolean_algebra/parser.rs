@@ -1,5 +1,6 @@
 use pest::Parser;
 use pest_derive::Parser;
+use crate::ast::CodexResult;
 use crate::error::CodexError;
 use crate::parsers::traits::{DomainParser, DomainResult};
 use super::ast::*;
@@ -34,7 +35,7 @@ impl DomainParser for BooleanParser {
             }
         }
 
-        Ok(Box::new(model))
+        Ok(CodexResult::Boolean(model))
     }
 }
 

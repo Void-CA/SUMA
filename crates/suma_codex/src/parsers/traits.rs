@@ -1,7 +1,7 @@
-use std::any::Any;
+use crate::ast::CodexResult;
 use crate::error::CodexError;
 
-pub type DomainResult = Result<Box<dyn Any>, CodexError>;
+pub type DomainResult = Result<CodexResult, CodexError>;
 
 pub trait DomainParser {
     // CAMBIO: Ahora el parser define una LISTA de palabras clave que acepta

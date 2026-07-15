@@ -90,19 +90,16 @@ where
         let mut string_rows: Vec<Vec<String>> = Vec::with_capacity(self.rows);
         let mut max_col_width = 0;
 
-        // Detectamos si el usuario pidió precisión (ej: {:.2})
-        let precision = f.precision().unwrap_or(4); // Default 4 decimales si es float
-
         for i in 0..self.rows {
             let mut row_strs = Vec::with_capacity(self.cols);
             for j in 0..self.cols {
                 let val = self.get(i, j).unwrap();
                 
-                // Truco: Intentamos formatear con precisión si es flotante.
-                // Como T es genérico, format!("{:.p$}", val) funciona si T soporta precisión.
-                // Si T es entero, ignorará la precisión o usaremos el default.
-                // Para simplificar en contexto genérico, usamos format! estándar:
-                let s = format!("{:.1$}", val, precision); 
+                // Use precision formatting only when explicitly requested (e.g. {:.2})
+                let s = match f.precision() {
+                    Some(prec) => format!("{:.1$}", val, prec),
+                    None => format!("{}", val),
+                };
                 
                 if s.len() > max_col_width {
                     max_col_width = s.len();
