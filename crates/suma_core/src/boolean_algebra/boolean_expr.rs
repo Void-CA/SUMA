@@ -262,17 +262,6 @@ impl std::fmt::Debug for BooleanExpr {
     }
 }
 
-/// Implementación de Clone
-impl Clone for BooleanExpr {
-    fn clone(&self) -> Self {
-        // Como Node y Vec<String> son Clone, podemos derivar Clone
-        BooleanExpr {
-            ast: self.ast.clone(),
-            variables: self.variables.clone(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

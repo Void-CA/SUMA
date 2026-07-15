@@ -107,6 +107,105 @@ impl<T: Ord + Clone + Display> AvlTree<T> {
         node
     }
 
+    // ── Search operations ──
+
+    pub fn contains(&self, value: &T) -> bool {
+        Self::contains_node(&self.root, value)
+    }
+
+    fn contains_node(node: &Option<Box<AvlNode<T>>>, value: &T) -> bool {
+        match node {
+            Some(n) => {
+                if *value < n.value {
+                    Self::contains_node(&n.left, value)
+                } else if *value > n.value {
+                    Self::contains_node(&n.right, value)
+                } else {
+                    true
+                }
+            }
+            None => false,
+        }
+    }
+
+    pub fn find(&self, value: &T) -> Option<&T> {
+        Self::find_node(&self.root, value)
+    }
+
+    fn find_node<'a>(node: &'a Option<Box<AvlNode<T>>>, value: &T) -> Option<&'a T> {
+        match node {
+            Some(n) => {
+                if *value < n.value {
+                    Self::find_node(&n.left, value)
+                } else if *value > n.value {
+                    Self::find_node(&n.right, value)
+                } else {
+                    Some(&n.value)
+                }
+            }
+            None => None,
+        }
+    }
+
+    pub fn min(&self) -> Option<&T> {
+        let mut current = self.root.as_ref()?;
+        while let Some(left) = &current.left {
+            current = left;
+        }
+        Some(&current.value)
+    }
+
+    pub fn max(&self) -> Option<&T> {
+        let mut current = self.root.as_ref()?;
+        while let Some(right) = &current.right {
+            current = right;
+        }
+        Some(&current.value)
+    }
+
+    // ── Deletion ──
+
+    pub fn delete(&mut self, value: &T) {
+        self.root = Self::delete_node(self.root.take(), value);
+    }
+
+    fn delete_node(node: Option<Box<AvlNode<T>>>, value: &T) -> Option<Box<AvlNode<T>>> {
+        match node {
+            Some(mut n) => {
+                if *value < n.value {
+                    n.left = Self::delete_node(n.left.take(), value);
+                } else if *value > n.value {
+                    n.right = Self::delete_node(n.right.take(), value);
+                } else {
+                    // Found the node to delete
+                    return match (n.left.take(), n.right.take()) {
+                        (None, None) => None,
+                        (Some(l), None) => Some(l),
+                        (None, Some(r)) => Some(r),
+                        (Some(l), Some(r)) => {
+                            // Find in-order successor (min of right subtree)
+                            let successor_val = Self::min_node(&r).clone();
+                            n.left = Some(l);
+                            n.right = Self::delete_node(Some(r), &successor_val);
+                            n.value = successor_val;
+                            Some(Self::balance(n))
+                        }
+                    };
+                }
+                Some(Self::balance(n))
+            }
+            None => None,
+        }
+    }
+
+    fn min_node(node: &Box<AvlNode<T>>) -> &T {
+        let mut current = node;
+        while let Some(left) = &current.left {
+            current = left;
+        }
+        &current.value
+    }
+
     /* ============================
      *     IN-ORDER TRAVERSAL
      * ============================ */
@@ -263,18 +362,113 @@ impl<T: Ord + Clone + Display> AvlTree<T> {
     pub fn print(&self) -> String {
         self.print_tree()
     }
+
+    pub fn len(&self) -> usize {
+        self.in_order().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.root.is_none()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn tree_height(node: &Option<Box<AvlNode<i32>>>) -> i32 {
+        match node {
+            Some(n) => n.height,
+            None => 0,
+        }
+    }
+
+    fn assert_balanced(node: &Option<Box<AvlNode<i32>>>) {
+        if let Some(n) = node {
+            assert_balanced(&n.left);
+            assert_balanced(&n.right);
+            let bf = tree_height(&n.left) - tree_height(&n.right);
+            assert!(bf.abs() <= 1, "Node {} has balance factor {}", n.value, bf);
+        }
+    }
+
     #[test]
     fn test_avl_insertion() {
-        let mut avl = super::AvlTree::new();
+        let mut avl = AvlTree::new();
         avl.insert(10);
         avl.insert(20);
         avl.insert(30);
         avl.insert(40);
         avl.insert(50);
-        println!("{}", avl.print_tree())
+
+        assert_balanced(&avl.root);
+        assert_eq!(avl.in_order(), vec![&10, &20, &30, &40, &50]);
+        assert_eq!(avl.len(), 5);
+    }
+
+    #[test]
+    fn test_avl_contains_and_find() {
+        let mut avl = AvlTree::new();
+        avl.insert(5);
+        avl.insert(3);
+        avl.insert(7);
+        avl.insert(1);
+        avl.insert(9);
+
+        assert_balanced(&avl.root);
+        assert!(avl.contains(&5));
+        assert!(avl.contains(&1));
+        assert!(avl.contains(&9));
+        assert!(!avl.contains(&0));
+        assert!(!avl.contains(&4));
+
+        assert_eq!(avl.find(&5), Some(&5));
+        assert_eq!(avl.find(&1), Some(&1));
+        assert_eq!(avl.find(&10), None);
+    }
+
+    #[test]
+    fn test_avl_min_max() {
+        let mut avl = AvlTree::new();
+        avl.insert(10);
+        avl.insert(20);
+        avl.insert(30);
+        avl.insert(5);
+        avl.insert(15);
+
+        assert_eq!(avl.min(), Some(&5));
+        assert_eq!(avl.max(), Some(&30));
+    }
+
+    #[test]
+    fn test_avl_delete() {
+        let mut avl = AvlTree::new();
+        avl.insert(10);
+        avl.insert(20);
+        avl.insert(30);
+        avl.insert(5);
+        avl.insert(15);
+
+        assert_balanced(&avl.root);
+        assert_eq!(avl.len(), 5);
+
+        avl.delete(&20);
+        assert_balanced(&avl.root);
+        assert!(!avl.contains(&20));
+        assert_eq!(avl.len(), 4);
+        assert_eq!(avl.in_order(), vec![&5, &10, &15, &30]);
+
+        avl.delete(&5);
+        assert_balanced(&avl.root);
+        assert!(!avl.contains(&5));
+        assert_eq!(avl.len(), 3);
+
+        avl.delete(&10);
+        assert_balanced(&avl.root);
+        assert_eq!(avl.len(), 2);
+
+        avl.delete(&15);
+        avl.delete(&30);
+        assert!(avl.is_empty());
     }
 }

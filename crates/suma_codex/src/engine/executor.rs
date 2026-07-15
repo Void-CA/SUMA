@@ -5,6 +5,7 @@ use crate::outputs::CodexOutput;
 // Asegúrate de que estos módulos sean pub en 'src/engine/adapters/mod.rs'
 use crate::engine::adapters::linear_algebra::LinearAlgebraExecutor;
 use crate::engine::adapters::optimization::OptimizationExecutor;
+use crate::engine::adapters::boolean_algebra::BooleanExecutor;
 
 pub struct CodexExecutor;
 
@@ -27,7 +28,7 @@ impl CodexExecutor {
         // Esto permite que una definición en el paso 1 sea recordada en el paso 5.
         let mut lin_alg = LinearAlgebraExecutor::new(verbose);
         let mut opt = OptimizationExecutor::new(verbose);
-        // let mut bool_exec = BooleanExecutor::new(verbose); 
+        let mut bool_exec = BooleanExecutor::new(verbose);
 
         // --- 2. BUCLE DE EJECUCIÓN ---
         for (_i, result) in results.iter().enumerate() {
@@ -56,8 +57,9 @@ impl CodexExecutor {
 
                 CodexResult::Boolean(model) => {
                     if verbose { println!("[BOOLEAN] Processing definition: {:?}", model.name); }
-                    // Placeholder hasta que tengas el BooleanExecutor listo
-                    observer("System", CodexOutput::Message("Dominio Booleano registrado (Sin ejecución aún)".into()));
+                    if let Err(e) = bool_exec.execute(model, &mut observer) {
+                        observer("Runtime Error", CodexOutput::Error(format!("{}", e)));
+                    }
                 },
 
                 // --- QUERY GENÉRICA (POLIMORFISMO) ---
@@ -69,19 +71,19 @@ impl CodexExecutor {
                     // Le preguntamos a cada adaptador si reconoce el ID.
                     
                     // 1. Preguntar a Álgebra Lineal
-                    let handled_lin = lin_alg.try_execute_query(query, &mut observer);
+                    let handled = lin_alg.try_execute_query(query, &mut observer);
                     
                     // 2. Preguntar a Optimización (solo si no fue atendido)
-                    let handled_opt = if !handled_lin {
+                    let handled = if !handled {
                         opt.try_execute_query(query, &mut observer)
                     } else {
                         true 
                     };
 
                     // 3. Si nadie respondió
-                    if !handled_lin && !handled_opt {
+                    if !handled {
                         observer("Error", CodexOutput::Error(
-                            format!("El identificador '{}' no fue encontrado en ningún dominio activo (LinearAlgebra, Optimization).", query.target_id)
+                            format!("Identifier '{}' not found in any active domain (LinearAlgebra, Optimization).", query.target_id)
                         ));
                     }
                 }
