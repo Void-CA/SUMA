@@ -30,3 +30,23 @@ where
         DenseMatrix::new(self.rows, self.cols, result_data)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::linear_algebra::DenseMatrix;
+
+    #[test]
+    fn test_sub_two_matrices() {
+        let a = DenseMatrix::new(2, 2, vec![5.0, 6.0, 7.0, 8.0]);
+        let b = DenseMatrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let result = &a - &b;
+        assert_eq!(result, DenseMatrix::new(2, 2, vec![4.0, 4.0, 4.0, 4.0]));
+    }
+
+    #[test]
+    fn test_sub_self_is_zero() {
+        let a = DenseMatrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let result = &a - &a;
+        assert_eq!(result, DenseMatrix::zeros(2, 2));
+    }
+}

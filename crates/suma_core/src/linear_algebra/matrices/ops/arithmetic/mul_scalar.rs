@@ -35,3 +35,29 @@ where
         DenseMatrix::new(self.rows, self.cols, new_data)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::linear_algebra::DenseMatrix;
+
+    #[test]
+    fn test_mul_scalar() {
+        let a = DenseMatrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let result = &a * 2.0;
+        assert_eq!(result, DenseMatrix::new(2, 2, vec![2.0, 4.0, 6.0, 8.0]));
+    }
+
+    #[test]
+    fn test_mul_scalar_zero() {
+        let a = DenseMatrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let result = &a * 0.0;
+        assert_eq!(result, DenseMatrix::zeros(2, 2));
+    }
+
+    #[test]
+    fn test_mul_scalar_one() {
+        let a = DenseMatrix::new(2, 2, vec![1.0, 2.0, 3.0, 4.0]);
+        let result = &a * 1.0;
+        assert_eq!(result, a);
+    }
+}
