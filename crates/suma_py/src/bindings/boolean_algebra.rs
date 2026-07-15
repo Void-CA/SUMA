@@ -192,7 +192,7 @@ impl PyTruthTable {
         self.to_pretty_string()
     }
 
-    fn summary(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+    fn summary(&self, _py: Python<'_>) -> PyResult<Py<PyDict>> {
         Python::attach(|py| {
             let dict = PyDict::new(py);
             let result_label = self.inner.column_order.last()
@@ -219,7 +219,7 @@ impl PyTruthTable {
     }
 
     /// Filters rows based on a Python callable applied to the specified column.
-    fn filter(&self, column: String, predicate: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Self> {
+    fn filter(&self, column: String, predicate: &Bound<'_, PyAny>, _py: Python<'_>) -> PyResult<Self> {
         if !self.inner.columns.contains_key(&column) {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Column '{}' not found", column)));
         }

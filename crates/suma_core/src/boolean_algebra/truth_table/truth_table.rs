@@ -74,7 +74,7 @@ impl TruthTable {
     }
 
     pub fn to_named_rows(&self) -> Vec<HashMap<String, bool>> {
-        let result_label = self.column_order.last()
+        let _result_label = self.column_order.last()
             .expect("Truth table must have at least one column");
         self.combinations.iter().enumerate().map(|(i, _)| {
             self.column_order

@@ -66,8 +66,6 @@ fn process_node(
                 return Err(LinearOptimizationError::NonLinearExpression("División por variable".into()));
             }
         }
-        // Casos como Pow, Sin, Cos lanzarían error inmediato
-        _ => return Err(LinearOptimizationError::NonLinearExpression(format!("Operación no soportada en LP: {:?}", expr))),
     }
     Ok(())
 }

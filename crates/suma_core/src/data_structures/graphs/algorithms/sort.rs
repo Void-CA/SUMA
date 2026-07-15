@@ -1,4 +1,4 @@
-use crate::data_structures::graphs::{Directed, GraphBase};
+use crate::data_structures::graphs::Directed;
 
 pub fn topological_sort<G:Directed>(graph : &G) -> Result<Vec<G::NodeId>, &'static str>
 {

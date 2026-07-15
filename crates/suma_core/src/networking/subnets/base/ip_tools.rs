@@ -36,7 +36,6 @@ pub fn network_class(ip: Ipv4Addr) -> &'static str {
         192..=223 => "Clase C",
         224..=239 => "Clase D",
         240..=255 => "Clase E",
-        _ => "Unknown",
     }
 }
 

@@ -265,7 +265,9 @@ mod tests {
         graph.add_directed_edge(node2, node3);
         graph.add_directed_edge(node3, node1); // Ciclo
 
-        assert_eq!(graph.predecessors(node3), vec![node1, node2]);
+        let mut preds = graph.predecessors(node3);
+        preds.sort();
+        assert_eq!(preds, vec![node1, node2]);
         assert_eq!(graph.predecessors(node1), vec![node3]);
         assert_eq!(graph.predecessors(node2), Vec::<usize>::new()); // Sin predecesores
         assert_eq!(graph.predecessors(999), Vec::<usize>::new()); // Nodo inexistente
@@ -309,12 +311,16 @@ mod tests {
         graph.add_directed_edge(nodes[2], nodes[3]);
         graph.add_directed_edge(nodes[3], nodes[4]);
 
-        // Verificar sucesores
-        assert_eq!(graph.successors(nodes[0]), vec![nodes[1], nodes[2]]);
+        // Verificar sucesores (orden no garantizado — HashMap)
+        let mut succs = graph.successors(nodes[0]);
+        succs.sort();
+        assert_eq!(succs, vec![nodes[1], nodes[2]]);
         assert_eq!(graph.successors(nodes[3]), vec![nodes[4]]);
 
-        // Verificar predecesores
-        assert_eq!(graph.predecessors(nodes[3]), vec![nodes[1], nodes[2]]);
+        // Verificar predecesores (orden no garantizado — HashMap)
+        let mut preds = graph.predecessors(nodes[3]);
+        preds.sort();
+        assert_eq!(preds, vec![nodes[1], nodes[2]]);
         assert_eq!(graph.predecessors(nodes[4]), vec![nodes[3]]);
 
         // Verificar nodos sin conexiones

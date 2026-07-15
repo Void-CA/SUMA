@@ -53,7 +53,7 @@ impl From<std::io::Error> for ExportError {
 
 impl From<IntoInnerError<Writer<Vec<u8>>>> for ExportError {
     fn from(err: IntoInnerError<Writer<Vec<u8>>>) -> Self {
-        err.into()
+        ExportError::CsvError(std::io::Error::new(std::io::ErrorKind::Other, err.to_string()).into())
     }
 }
 

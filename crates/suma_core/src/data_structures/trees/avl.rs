@@ -265,12 +265,11 @@ impl<T: Ord + Clone + Display> AvlTree<T> {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use super::AvlTree;
-
     #[test]
     fn test_avl_insertion() {
-        let mut avl = AvlTree::new();
+        let mut avl = super::AvlTree::new();
         avl.insert(10);
         avl.insert(20);
         avl.insert(30);

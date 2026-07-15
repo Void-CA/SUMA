@@ -31,8 +31,8 @@ where
             for j in 0..p {
                 let mut sum = T::zero();
                 for k in 0..n {
-                    let a_ik = self.get(i, k);
-                    let b_kj = rhs.get(k, j);
+                    let a_ik = self.get(i, k).unwrap();
+                    let b_kj = rhs.get(k, j).unwrap();
                     sum = sum + (a_ik * b_kj);
                 }
                 result_data.push(sum);

@@ -301,7 +301,6 @@ impl Node {
                 let label = format!("{} nor {}", left.to_infix_notation_text(), right.to_infix_notation_text());
                 list.push((label, self.clone()));
             }
-            _ => unimplemented!("Operador no soportado"),
         }
     }
 

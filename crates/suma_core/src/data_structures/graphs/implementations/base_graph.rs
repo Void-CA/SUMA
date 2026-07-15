@@ -53,7 +53,6 @@ impl<T, E> BaseGraph<T, E> {
 
 }
 
-use std::hash::Hash;
 use crate::formatting::error::ExportError;
 
 impl<T, E> GraphBase for BaseGraph<T, E>

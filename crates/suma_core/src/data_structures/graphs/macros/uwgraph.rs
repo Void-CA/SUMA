@@ -1,5 +1,3 @@
-use crate::data_structures::UndirectedWeightedGraph;
-
 #[macro_export]
 macro_rules! float_uwgraph {
     (

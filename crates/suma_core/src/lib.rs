@@ -1,6 +1,8 @@
 // src/lib.rs
 
-#![allow(warnings)]
+// dead_code: algunas estructuras son WIP (AVL, probability) y se limpiarán en fases posteriores
+#![deny(unreachable_patterns)]
+#![warn(unused_imports, unused_variables, dead_code)]
 
 pub mod boolean_algebra;
 pub mod data_structures;

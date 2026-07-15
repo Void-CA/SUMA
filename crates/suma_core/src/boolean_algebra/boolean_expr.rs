@@ -153,7 +153,7 @@ impl BooleanExpr {
     }
     
     pub fn to_unicode_string(&self) -> String {
-        self.ast.to_infix_notation_text()
+        self.ast.to_infix_notation_unicode()
     }
 
     /// Convierte la expresión a notación prefija (para debugging)

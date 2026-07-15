@@ -22,25 +22,47 @@ where
         Self { data, rows, cols }
     }
 
-    // Cambio importante: Ahora devuelve T clonándolo, porque T podría no ser Copy (Expr)
-    pub fn get(&self, row: usize, col: usize) -> T {
-        self.data[row * self.cols + col].clone() 
+    /// Attempts to create a new DenseMatrix, returning an error if the data length doesn't match.
+    pub fn try_new(rows: usize, cols: usize, data: Vec<T>) -> Result<Self, crate::linear_algebra::error::LinearAlgebraError> {
+        if data.len() != rows * cols {
+            return Err(crate::linear_algebra::error::LinearAlgebraError::DimensionMismatch {
+                operation: format!("Expected {} elements, got {}", rows * cols, data.len()),
+                expected: rows * cols,
+                found: data.len(),
+            });
+        }
+        Ok(Self { data, rows, cols })
     }
 
-    // Opcional: Una versión más eficiente que devuelve referencia
-    pub fn get_ref(&self, row: usize, col: usize) -> &T {
-        &self.data[row * self.cols + col]
+    pub fn get(&self, row: usize, col: usize) -> Option<T> {
+        if row >= self.rows || col >= self.cols {
+            return None;
+        }
+        Some(self.data[row * self.cols + col].clone())
+    }
+
+    pub fn get_ref(&self, row: usize, col: usize) -> Option<&T> {
+        if row >= self.rows || col >= self.cols {
+            return None;
+        }
+        Some(&self.data[row * self.cols + col])
     }
 
     pub fn zeros(rows: usize, cols: usize) -> Self {
-        // T::zero() viene de nuestro trait Zero
-        // vec! con clone requiere que T sea Clone, lo cual Scalar garantiza.
         let data = vec![T::zero(); rows * cols]; 
         Self { data, rows, cols }
     }
     
-    pub fn set(&mut self, row: usize, col: usize, value: T) {
+    pub fn set(&mut self, row: usize, col: usize, value: T) -> Result<(), crate::linear_algebra::error::LinearAlgebraError> {
+        if row >= self.rows || col >= self.cols {
+            return Err(crate::linear_algebra::error::LinearAlgebraError::IndexOutOfBounds {
+                context: format!("Index ({}, {}) for {}x{} matrix", row, col, self.rows, self.cols),
+                index: if row >= self.rows { row } else { col },
+                max: if row >= self.rows { self.rows } else { self.cols },
+            });
+        }
         self.data[row * self.cols + col] = value;
+        Ok(())
     }
     
     pub fn is_approx(&self, other: &DenseMatrix<T>) -> bool {
@@ -74,7 +96,7 @@ where
         for i in 0..self.rows {
             let mut row_strs = Vec::with_capacity(self.cols);
             for j in 0..self.cols {
-                let val = self.get(i, j);
+                let val = self.get(i, j).unwrap();
                 
                 // Truco: Intentamos formatear con precisión si es flotante.
                 // Como T es genérico, format!("{:.p$}", val) funciona si T soporta precisión.

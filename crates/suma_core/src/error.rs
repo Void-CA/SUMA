@@ -1,5 +1,3 @@
-use core::error;
-
 #[derive(Debug, thiserror::Error)]
 pub enum SumaError {
     #[error(transparent)]

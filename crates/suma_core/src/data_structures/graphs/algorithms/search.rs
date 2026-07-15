@@ -222,9 +222,17 @@ mod tests {
         let (graph, nodes_id) = setup_graph();
 
         let path = dfs(&graph, nodes_id[0], nodes_id[4]).unwrap();
-        let expected_path = vec![nodes_id[0], nodes_id[2], nodes_id[4]];
 
-        assert_eq!(path, expected_path);
+        // DFS can produce any valid path — verify each step is a valid edge
+        assert_eq!(path.first(), Some(&nodes_id[0]), "DFS must start at source");
+        assert_eq!(path.last(), Some(&nodes_id[4]), "DFS must end at target");
+        for window in path.windows(2) {
+            assert!(
+                graph.edge_data(window[0], window[1]).is_some(),
+                "No edge between {:?} and {:?} in path {:?}",
+                window[0], window[1], path,
+            );
+        }
     }
 
     #[test]

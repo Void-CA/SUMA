@@ -1,7 +1,6 @@
 use super::error::EvalError;
 use super::ast::Expr;
 use super::context::Context; // Asegúrate de que Context esté accesible
-use std::fmt;
 
 
 

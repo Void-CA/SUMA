@@ -51,10 +51,10 @@ impl LinearSystem {
         for i in 0..rows {
             // Copiar fila de A
             for j in 0..a.cols {
-                aug_data.push(a.get(i, j));
+                aug_data.push(a.get(i, j).unwrap());
             }
             // Copiar elemento de b
-            aug_data.push(b.get(i, 0));
+            aug_data.push(b.get(i, 0).unwrap());
         }
 
         let mut augmented = DenseMatrix::new(rows, cols_aug, aug_data);
@@ -68,7 +68,7 @@ impl LinearSystem {
         for i in 0..rows {
             // Verificar si tenemos un pivote válido en la diagonal
             // En RREF de una matriz invertible, la diagonal debe ser 1.
-            let diag = augmented.get(i, i);
+            let diag = augmented.get(i, i).unwrap();
             if diag.is_zero() {
                 // Si la diagonal es 0, el sistema es singular (inconsistente o infinitas soluciones)
                 // Para una solver simple, esto es un error.
@@ -80,7 +80,7 @@ impl LinearSystem {
             }
             
             // La solución está en la última columna
-            x_data.push(augmented.get(i, rows));
+            x_data.push(augmented.get(i, rows).unwrap());
         }
 
         Ok(DenseMatrix::new(rows, 1, x_data))
@@ -217,12 +217,12 @@ mod tests {
 
         // 1. Verificar 'y' (posición 1,0 en vector solución)
         // Debe ser 'b'
-        let y_res = x_vec.get(1, 0).simplify();
+        let y_res = x_vec.get(1, 0).unwrap().simplify();
         assert_eq!(y_res, val_b);
 
         // 2. Verificar 'x' (posición 0,0 en vector solución)
         // Debe ser '-a * b' (o '0 - a*b')
-        let x_res = x_vec.get(0, 0).simplify();
+        let x_res = x_vec.get(0, 0).unwrap().simplify();
         
         // Construimos la expectativa manual: -(a * b)
         let expected_x = - (val_a * val_b);

@@ -27,7 +27,7 @@ where
         for i in 0..n {
             // Parte izquierda (Copia de A)
             for j in 0..n {
-                augmented_data.push(self.get(i, j));
+                augmented_data.push(self.get(i, j).unwrap());
             }
             // Parte derecha (Identidad)
             for j in 0..n {
@@ -54,7 +54,7 @@ where
         for i in 0..n {
             // Verificación rápida de singularidad:
             // En RREF, si A es invertible, A[i][i] debe ser 1.
-            let diag_val = augmented.get(i, i);
+            let diag_val = augmented.get(i, i).unwrap();
             if diag_val.is_zero() {
                 // Nota: Podríamos agregar un error específico "SingularMatrix" en LinearAlgebraError
                 return Err(LinearAlgebraError::DimensionMismatch { 
@@ -66,7 +66,7 @@ where
 
             // Extraer parte derecha (columnas de n a 2n)
             for j in 0..n {
-                inverse_data.push(augmented.get(i, n + j));
+                inverse_data.push(augmented.get(i, n + j).unwrap());
             }
         }
 
@@ -147,7 +147,7 @@ mod tests {
         // Verificamos (0,0) -> 1/x
         // Aquí SÍ usamos assert_eq! porque para símbolos la igualdad debe ser estructural y exacta.
         // Scalar::is_approx para Expr llama a ==, así que es lo mismo.
-        let cell_00 = inv.get(0, 0).simplify();
+        let cell_00 = inv.get(0, 0).unwrap().simplify();
         match cell_00 {
             Expr::Div(lhs, rhs) => {
                 assert_eq!(*lhs, Expr::Const(1.0));
@@ -157,7 +157,7 @@ mod tests {
         }
 
         // Verificamos (1,1) -> 1/y
-        let cell_11 = inv.get(1, 1).simplify();
+        let cell_11 = inv.get(1, 1).unwrap().simplify();
         match cell_11 {
             Expr::Div(lhs, rhs) => {
                 assert_eq!(*lhs, Expr::Const(1.0));

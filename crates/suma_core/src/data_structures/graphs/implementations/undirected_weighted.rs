@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use num_traits::{Num};
 use ordered_float::OrderedFloat;
-use crate::data_structures::graphs::{BaseGraph, Directed, GraphBase};
+use crate::data_structures::graphs::{BaseGraph, GraphBase};
 use crate::data_structures::graphs::traits::WeightedGraph;
 use crate::data_structures::graphs::weighted::{IntoWeight, Weight};
 use crate::formatting::error::ExportError;

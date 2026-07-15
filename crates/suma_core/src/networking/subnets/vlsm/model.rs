@@ -109,7 +109,7 @@ impl BaseCalculator for VLSMCalculator {
             // Asegurar que estamos en un boundary de red válido
             let network = calculate_network_address(current_network, mask);
             
-            let subnet_row = SubnetRow::new(
+            let _subnet_row = SubnetRow::new(
                 (original_index + 1) as u32,
                 network,
                 mask,

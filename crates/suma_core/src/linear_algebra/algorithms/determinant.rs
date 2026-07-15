@@ -24,7 +24,7 @@ where
         for i in 0..n {
             // 1. Pivoteo
             let mut pivot_row = i;
-            while pivot_row < n && mat.get(pivot_row, i).is_zero() {
+            while pivot_row < n && mat.get(pivot_row, i).unwrap().is_zero() {
                 pivot_row += 1;
             }
 
@@ -40,8 +40,8 @@ where
 
             // 2. Eliminación (Hacer ceros DEBAJO del pivote solamente)
             for j in (i + 1)..n {
-                let pivot = mat.get(i, i);
-                let target = mat.get(j, i);
+                let pivot = mat.get(i, i).unwrap();
+                let target = mat.get(j, i).unwrap();
 
                 if !target.is_zero() {
                     // Queremos hacer target cero.
@@ -62,7 +62,7 @@ where
         // 3. Producto de la Diagonal
         let mut det = T::one();
         for i in 0..n {
-            det = det * mat.get(i, i);
+            det = det * mat.get(i, i).unwrap();
         }
 
         // 4. Ajuste de Signo por Swaps

@@ -108,7 +108,7 @@ mod tests {
         // Operación: x + (-x * 1) 
         // Resultado esperado (sin simplificar): Add(x, Mul(-x, 1))
         
-        let target_cell = matrix.get(0, 1);
+        let target_cell = matrix.get(0, 1).unwrap();
         println!("Celda resultante (debe reducirse a 0): {:?}", target_cell);
 
         // Si tuviéramos simplify(), esto daría Const(0.0).

@@ -2,8 +2,7 @@ use crate::data_structures::graphs::{WeightedGraph, graph_base::GraphBase, weigh
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Reverse;
 use std::fmt::Debug;
-use num_traits::{Num, Zero, Bounded};
-use ordered_float::OrderedFloat;
+use num_traits::{Zero};
 
 pub fn dijkstra_algorithm<G>(graph: &G, source: G::NodeId) -> HashMap<G::NodeId, G::EdgeData>
 where
@@ -136,6 +135,7 @@ mod tests {
 
     #[test]
     fn test_dijkstra_path_basic() {
+        use ordered_float::OrderedFloat;
         type EdgeData = OrderedFloat<f64>;
 
         let mut graph: UndirectedWeightedGraph<i32, EdgeData> = UndirectedWeightedGraph::new();

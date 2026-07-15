@@ -19,7 +19,7 @@ impl SimplexTableau {
         let cols = self.matrix.cols;
 
         // 1. Obtener el valor del elemento pivote
-        let pivot_val = self.matrix.get(pivot_row, pivot_col);
+        let pivot_val = self.matrix.get(pivot_row, pivot_col).unwrap();
 
         // Seguridad numérica básica: si el pivote es casi cero, explotaría
         if pivot_val.abs() < 1e-12 {
@@ -30,22 +30,22 @@ impl SimplexTableau {
         // 2. Normalizar la fila pivote (hacer que el pivote sea 1.0)
         // R_pivot = R_pivot / pivot_val
         for j in 0..cols {
-            let val = self.matrix.get(pivot_row, j);
-            self.matrix.set(pivot_row, j, val / pivot_val);
+            let val = self.matrix.get(pivot_row, j).unwrap();
+            self.matrix.set(pivot_row, j, val / pivot_val).unwrap();
         }
 
         // 3. Hacer ceros en el resto de la columna (Gaussian Elimination)
         // R_i = R_i - (factor * R_pivot)
         for i in 0..rows {
             if i != pivot_row {
-                let factor = self.matrix.get(i, pivot_col);
+                let factor = self.matrix.get(i, pivot_col).unwrap();
                 
                 // Si el factor ya es 0, no necesitamos hacer nada (optimización de dispersión)
                 if factor.abs() > 1e-12 {
                     for j in 0..cols {
-                        let row_val_pivot = self.matrix.get(pivot_row, j); // Valor normalizado
-                        let current_val = self.matrix.get(i, j);
-                        self.matrix.set(i, j, current_val - (factor * row_val_pivot));
+                        let row_val_pivot = self.matrix.get(pivot_row, j).unwrap(); // Valor normalizado
+                        let current_val = self.matrix.get(i, j).unwrap();
+                        self.matrix.set(i, j, current_val - (factor * row_val_pivot)).unwrap();
                     }
                 }
             }

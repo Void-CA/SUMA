@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use crate::optimization::linear::algorithms::simplex::solve_primal;
 use crate::optimization::linear::model::{Constraint, LinearExpression, Relation, OptimizationDirection};
-use crate::optimization::linear::error::{OptimizationStatus, Solution};
+use crate::optimization::linear::error::Solution;
 use crate::optimization::error::OptimizationError; // Usamos el error genérico
 use crate::optimization::integer::problem::IntegerProblem;
 

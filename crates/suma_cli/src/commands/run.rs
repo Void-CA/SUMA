@@ -69,7 +69,8 @@ pub fn execute(path: &PathBuf, verbose: bool) -> Result<()> {
             CodexOutput::Error(err) => {
                 println!("{}", err.red().bold());
             }
-            // Agrega un catch-all por si agregamos nuevos tipos y olvidamos actualizar aquí
+            // Catch-all por si agregamos nuevos tipos y olvidamos actualizar aquí
+            #[allow(unreachable_patterns)]
             _ => println!("{:?}", output),
         }
     };

@@ -21,7 +21,7 @@ where
             // Buscamos una fila (desde pivot_row hacia abajo) que tenga un valor no-cero en la columna j.
             let mut pivot_found = false;
             for k in pivot_row..self.rows {
-                if !self.get_ref(k, j).is_zero() {
+                if !self.get_ref(k, j).unwrap().is_zero() {
                     // Encontramos un pivote no nulo. Lo traemos a la posición actual.
                     self.swap_rows(pivot_row, k)?;
                     pivot_found = true;
@@ -37,7 +37,7 @@ where
             // 2. NORMALIZACIÓN
             // Hacemos que el pivote sea 1 (Dividiendo toda la fila por el valor del pivote)
             // R_pivot = R_pivot / pivot_val
-            let pivot_val = self.get(pivot_row, j); // Clonamos el valor
+            let pivot_val = self.get(pivot_row, j).unwrap(); // Clonamos el valor
             
             // Optimización: Si ya es 1, no hacemos nada.
             // Nota: Esto requiere que Scalar pueda compararse con 1, lo asumimos por eficiencia genérica dividiendo.
@@ -50,7 +50,7 @@ where
             // 3. ELIMINACIÓN (Hacer ceros arriba y abajo)
             for k in 0..self.rows {
                 if k != pivot_row {
-                    let factor = self.get(k, j); // El valor que queremos eliminar
+                    let factor = self.get(k, j).unwrap(); // El valor que queremos eliminar
                     if !factor.is_zero() {
                         // R_k = R_k - (factor * R_pivot)
                         // Nuestra función es add_scaled_row(target, source, scalar)
@@ -144,7 +144,7 @@ mod tests {
         m.rref().expect("RREF simbólico falló");
 
         // Verificamos la eliminación del elemento (0, 1)
-        let cell_target = m.get(0, 1);
+        let cell_target = m.get(0, 1).unwrap();
         
         // Validación rigurosa: (x - x*1) -> 0
         assert_eq!(cell_target.simplify(), Expr::Const(0.0));

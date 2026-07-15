@@ -1,9 +1,6 @@
 
-use serde::Serialize;
 use crate::probability::bayes::{BinaryCPT, DiscreteCPT, CPT};
-use std::hash::Hash;
 use std::collections::HashMap;
-use rust_xlsxwriter::TableFunction;
 use crate::data_structures::dag::DAG;
 use crate::data_structures::graphs::{Directed, GraphBase};
 use crate::probability::bayes::models::BN_base::*;
@@ -150,11 +147,11 @@ impl BayesianNetwork {
     pub fn add_edge(&mut self, parent: &str, child: &str) {
         let parent = self.name_to_id.get(parent).expect("Parent node not found.");
         let child = self.name_to_id.get(child).expect("Child node not found.");
-        self.dag.add_edge(*parent, *child);
+        let _ = self.dag.add_edge(*parent, *child);
     }
 
     pub fn add_edge_by_id(&mut self, parent: usize, child: usize) {
-        self.dag.add_edge(parent, child);
+        let _ = self.dag.add_edge(parent, child);
     }
 
     pub fn get_id_from_name(&self, name: &str) -> Option<usize> {

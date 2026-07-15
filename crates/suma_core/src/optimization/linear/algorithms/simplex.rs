@@ -27,7 +27,7 @@ pub fn solve_primal(problem: &LinearProblem) -> OptimizationResult {
     // 2. FASE 1 (Buscar Factibilidad)
     if has_artificial_vars {
         run_simplex_phase(&mut tableau, None)?;
-        let w_val = tableau.matrix.get(tableau.matrix.rows - 1, tableau.matrix.cols - 1);
+        let w_val = tableau.matrix.get(tableau.matrix.rows - 1, tableau.matrix.cols - 1).unwrap();
         if w_val.abs() > 1e-5 { // Usar abs() por seguridad
             return Err(LinearOptimizationError::Infeasible);
         }
@@ -99,21 +99,21 @@ fn prepare_phase_2(
     // A. Cargar Objetivo
     for col in 0..cols {
         if artificial_indices.contains(&col) {
-            tableau.matrix.set(z_row_idx, col, 0.0);
+            tableau.matrix.set(z_row_idx, col, 0.0).unwrap();
         } else {
-            tableau.matrix.set(z_row_idx, col, original_objective[col]);
+            tableau.matrix.set(z_row_idx, col, original_objective[col]).unwrap();
         }
     }
 
     // B. Pricing Out
     for (row_idx, &basic_col_idx) in tableau.basic_vars.iter().enumerate() {
         if row_idx < z_row_idx {
-            let coeff_in_z = tableau.matrix.get(z_row_idx, basic_col_idx);
+            let coeff_in_z = tableau.matrix.get(z_row_idx, basic_col_idx).unwrap();
             if coeff_in_z.abs() > EPSILON {
                 for col in 0..cols {
-                    let val_row = tableau.matrix.get(row_idx, col);
-                    let val_z = tableau.matrix.get(z_row_idx, col);
-                    tableau.matrix.set(z_row_idx, col, val_z - (coeff_in_z * val_row));
+                    let val_row = tableau.matrix.get(row_idx, col).unwrap();
+                    let val_z = tableau.matrix.get(z_row_idx, col).unwrap();
+                    tableau.matrix.set(z_row_idx, col, val_z - (coeff_in_z * val_row)).unwrap();
                 }
             }
         }
@@ -128,7 +128,7 @@ fn is_optimal(tableau: &SimplexTableau, ignore_cols: Option<&Vec<usize>>) -> boo
         if let Some(ignored) = ignore_cols {
             if ignored.contains(&j) { continue; }
         }
-        if tableau.matrix.get(last_row_idx, j) < -EPSILON {
+        if tableau.matrix.get(last_row_idx, j).unwrap() < -EPSILON {
             return false;
         }
     }
@@ -144,7 +144,7 @@ fn select_entering_variable(tableau: &SimplexTableau, ignore_cols: Option<&Vec<u
         if let Some(ignored) = ignore_cols {
             if ignored.contains(&j) { continue; }
         }
-        let val = tableau.matrix.get(last_row_idx, j);
+        let val = tableau.matrix.get(last_row_idx, j).unwrap();
         if val < min_val {
             min_val = val;
             entering_col = Some(j);
@@ -158,8 +158,8 @@ fn select_leaving_variable(tableau: &SimplexTableau, col_idx: usize) -> Option<u
     let mut leaving_row = None;
 
     for i in 0..(tableau.matrix.rows - 1) {
-        let coeff = tableau.matrix.get(i, col_idx);
-        let rhs = tableau.matrix.get(i, tableau.matrix.cols - 1);
+        let coeff = tableau.matrix.get(i, col_idx).unwrap();
+        let rhs = tableau.matrix.get(i, tableau.matrix.cols - 1).unwrap();
 
         if coeff > EPSILON {
             let ratio = rhs / coeff;
@@ -184,7 +184,7 @@ fn extract_solution(
     // 1. Variables de Decisión
     for (row_idx, &col_idx) in tableau.basic_vars.iter().enumerate() {
         if row_idx < num_rows {
-            let val = tableau.matrix.get(row_idx, rhs_col);
+            let val = tableau.matrix.get(row_idx, rhs_col).unwrap();
             if let Some(name) = reverse_map.get(&col_idx) {
                 if !name.starts_with('_') {
                     variables.insert(name.clone(), val);
@@ -201,11 +201,11 @@ fn extract_solution(
     // 2. Shadow Prices (Precios Sombra)
     let mut shadow_prices = HashMap::new();
     for (name, &col_idx) in constraint_col_map {
-        let val = tableau.matrix.get(num_rows, col_idx);
+        let val = tableau.matrix.get(num_rows, col_idx).unwrap();
         shadow_prices.insert(name.clone(), val);
     }
 
-    let obj_val = tableau.matrix.get(num_rows, rhs_col);
+    let obj_val = tableau.matrix.get(num_rows, rhs_col).unwrap();
 
     Solution {
         status: OptimizationStatus::Optimal,

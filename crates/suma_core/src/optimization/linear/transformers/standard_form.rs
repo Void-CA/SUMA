@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use crate::optimization::linear::model::{LinearProblem, Relation, OptimizationDirection};
 use crate::optimization::linear::internal::tableau::SimplexTableau;
 use crate::optimization::linear::error::LinearOptimizationError; // Cambio de nombre
@@ -63,14 +63,14 @@ pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, L
         // A) Coeficientes decisión
         for (var_name, coeff) in &constraint.lhs.coefficients {
             if let Some(&col_idx) = var_map.get(var_name) {
-                matrix.set(row_idx, col_idx, *coeff);
+                matrix.set(row_idx, col_idx, *coeff).unwrap();
             }
         }
 
         // B) Vars Auxiliares y Mapeo para Shadow Prices
         match constraint.relation {
             Relation::LessOrEqual => {
-                matrix.set(row_idx, current_slack_col, 1.0);
+                matrix.set(row_idx, current_slack_col, 1.0).unwrap();
                 reverse_map.insert(current_slack_col, format!("_s_{}", row_idx));
                 basic_vars[row_idx] = current_slack_col;
                 
@@ -81,7 +81,7 @@ pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, L
                 current_slack_col += 1;
             },
             Relation::GreaterOrEqual => {
-                matrix.set(row_idx, current_slack_col, -1.0);
+                matrix.set(row_idx, current_slack_col, -1.0).unwrap();
                 reverse_map.insert(current_slack_col, format!("_surplus_{}", row_idx));
                 
                 // En >=, el shadow price se lee del surplus
@@ -90,14 +90,14 @@ pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, L
                 }
                 current_slack_col += 1;
 
-                matrix.set(row_idx, current_artificial_col, 1.0);
+                matrix.set(row_idx, current_artificial_col, 1.0).unwrap();
                 reverse_map.insert(current_artificial_col, format!("_art_{}", row_idx));
                 artificial_indices.push(current_artificial_col);
                 basic_vars[row_idx] = current_artificial_col;
                 current_artificial_col += 1;
             },
             Relation::Equal => {
-                matrix.set(row_idx, current_artificial_col, 1.0);
+                matrix.set(row_idx, current_artificial_col, 1.0).unwrap();
                 reverse_map.insert(current_artificial_col, format!("_art_{}", row_idx));
                 artificial_indices.push(current_artificial_col);
                 basic_vars[row_idx] = current_artificial_col;
@@ -105,7 +105,7 @@ pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, L
             }
         }
         // C) RHS
-        matrix.set(row_idx, cols - 1, constraint.rhs);
+        matrix.set(row_idx, cols - 1, constraint.rhs).unwrap();
     }
 
     // 6. Construir Funciones Objetivo
@@ -125,21 +125,21 @@ pub fn to_standard_form(problem: &LinearProblem) -> Result<StandardFormResult, L
     if !artificial_indices.is_empty() {
         // FASE 1
         for &art_col in &artificial_indices {
-            matrix.set(z_row_idx, art_col, 1.0);
+            matrix.set(z_row_idx, art_col, 1.0).unwrap();
         }
         for row_idx in 0..num_constraints {
             if artificial_indices.contains(&basic_vars[row_idx]) {
                 for col in 0..cols {
-                    let val_row = matrix.get(row_idx, col);
-                    let current_z = matrix.get(z_row_idx, col);
-                    matrix.set(z_row_idx, col, current_z - val_row);
+                    let val_row = matrix.get(row_idx, col).unwrap();
+                    let current_z = matrix.get(z_row_idx, col).unwrap();
+                    matrix.set(z_row_idx, col, current_z - val_row).unwrap();
                 }
             }
         }
     } else {
         // NO FASE 1
         for (col, &val) in original_objective_row.iter().enumerate() {
-            matrix.set(z_row_idx, col, val);
+            matrix.set(z_row_idx, col, val).unwrap();
         }
     }
 
@@ -192,7 +192,7 @@ mod tests {
 
         // Verificamos el Tableau directo (asumiendo que no hay artificiales, pasa directo)
         let z_row = res.tableau.matrix.rows - 1;
-        assert_eq!(res.tableau.matrix.get(z_row, x_idx), -3.0);
+        assert_eq!(res.tableau.matrix.get(z_row, x_idx).unwrap(), -3.0);
     }
 
     #[test]
@@ -229,13 +229,13 @@ mod tests {
         // Fila 0: Slack normal (+1)
         // El nombre interno debería ser _s_0
         let s0_idx = res.reverse_map.iter().find(|(_, v)| *v == "_s_0").map(|(k, _)| *k).unwrap();
-        assert_eq!(matrix.get(0, s0_idx), 1.0);
+        assert_eq!(matrix.get(0, s0_idx).unwrap(), 1.0);
 
         // Fila 1: Surplus (-1) y Artificial (+1)
         let sur1_idx = res.reverse_map.iter().find(|(_, v)| *v == "_surplus_1").map(|(k, _)| *k).unwrap();
         let art1_idx = res.reverse_map.iter().find(|(_, v)| *v == "_art_1").map(|(k, _)| *k).unwrap();
         
-        assert_eq!(matrix.get(1, sur1_idx), -1.0);
-        assert_eq!(matrix.get(1, art1_idx), 1.0);
+        assert_eq!(matrix.get(1, sur1_idx).unwrap(), -1.0);
+        assert_eq!(matrix.get(1, art1_idx).unwrap(), 1.0);
     }
 }
