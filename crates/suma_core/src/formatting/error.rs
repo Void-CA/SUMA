@@ -1,64 +1,31 @@
-use std::error::Error;
-use std::fmt;
-use csv::{IntoInnerError, Writer};
-use rust_xlsxwriter::XlsxError;
+use thiserror::Error;
 
-// Error personalizado para las operaciones de exportación
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ExportError {
-    JsonError(serde_json::Error),
-    CsvError(csv::Error),
-    Utf8Error(std::string::FromUtf8Error),
-    IoError(std::io::Error),
+    #[error("JSON serialization error: {0}")]
+    JsonError(#[from] serde_json::Error),
+
+    #[error("CSV serialization error: {0}")]
+    CsvError(#[from] csv::Error),
+
+    #[error("UTF-8 conversion error: {0}")]
+    Utf8Error(#[from] std::string::FromUtf8Error),
+
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
+
+    #[error("Excel export error: {0}")]
     ExcelError(String),
 }
 
-impl fmt::Display for ExportError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ExportError::JsonError(e) => write!(f, "JSON serialization error: {}", e),
-            ExportError::CsvError(e) => write!(f, "CSV serialization error: {}", e),
-            ExportError::Utf8Error(e) => write!(f, "UTF-8 conversion error: {}", e),
-            ExportError::IoError(e) => write!(f, "I/O error: {}", e),
-            ExportError::ExcelError(e) => write!(f, "Excel export error: {}", e),
-        }
-    }
-}
-
-impl Error for ExportError {}
-
-impl From<serde_json::Error> for ExportError {
-    fn from(err: serde_json::Error) -> Self {
-        ExportError::JsonError(err)
-    }
-}
-
-impl From<csv::Error> for ExportError {
-    fn from(err: csv::Error) -> Self {
-        ExportError::CsvError(err)
-    }
-}
-
-impl From<std::string::FromUtf8Error> for ExportError {
-    fn from(err: std::string::FromUtf8Error) -> Self {
-        ExportError::Utf8Error(err)
-    }
-}
-
-impl From<std::io::Error> for ExportError {
-    fn from(err: std::io::Error) -> Self {
-        ExportError::IoError(err)
-    }
-}
-
-impl From<IntoInnerError<Writer<Vec<u8>>>> for ExportError {
-    fn from(err: IntoInnerError<Writer<Vec<u8>>>) -> Self {
+impl From<csv::IntoInnerError<csv::Writer<Vec<u8>>>> for ExportError {
+    fn from(err: csv::IntoInnerError<csv::Writer<Vec<u8>>>) -> Self {
         ExportError::CsvError(std::io::Error::new(std::io::ErrorKind::Other, err.to_string()).into())
     }
 }
 
-impl From<XlsxError> for ExportError {
-    fn from(err: XlsxError) -> Self {
+impl From<rust_xlsxwriter::XlsxError> for ExportError {
+    fn from(err: rust_xlsxwriter::XlsxError) -> Self {
         ExportError::ExcelError(err.to_string())
     }
 }

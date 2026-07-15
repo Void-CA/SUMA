@@ -1,5 +1,6 @@
 use pest::Parser;
 use pest_derive::Parser;
+use crate::error::CodexError;
 use crate::parsers::traits::{DomainParser, DomainResult};
 use super::ast::{
     OptimizationBlock, OptimizationModel, 
@@ -21,7 +22,7 @@ impl DomainParser for OptimizationParser {
 
     fn parse_domain(&self, content: &str) -> DomainResult {
         let pairs = OptimizationPestGrammar::parse(Rule::optimization_block, content)
-            .map_err(|e| format!("{}", e))?;
+            .map_err(|e| CodexError::ParseError { domain: "optimization".into(), message: format!("{}", e) })?;
 
         if let Some(root) = pairs.clone().next() {
             // La gramática ahora solo debería permitir definiciones aquí
@@ -34,10 +35,10 @@ impl DomainParser for OptimizationParser {
                     // Empaquetamos en el Enum de bloque
                     Ok(Box::new(OptimizationBlock::Definition(model)))
                 },
-                _ => Err(format!("Regla inesperada: {:?}", inner.as_rule()).into())
+                _ => Err(CodexError::ParseError { domain: "optimization".into(), message: format!("Unexpected rule: {:?}", inner.as_rule()) })
             }
         } else {
-            Err("Bloque vacío".to_string().into())
+            Err(CodexError::ParseError { domain: "optimization".into(), message: "Empty block".into() })
         }
     }
 }

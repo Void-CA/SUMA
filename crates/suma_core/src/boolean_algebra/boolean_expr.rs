@@ -9,6 +9,7 @@ use crate::boolean_algebra::Result;  // Nuestro Result personalizado
 use crate::boolean_algebra::ast::Node;
 
 /// Expresión booleana con AST y variables extraídas
+#[derive(Clone)]
 pub struct BooleanExpr {
     pub ast: Node,
     pub variables: Vec<String>,

@@ -1,5 +1,6 @@
 use pest::Parser;
 use pest_derive::Parser;
+use crate::error::CodexError;
 use crate::parsers::traits::{DomainParser, DomainResult};
 use super::ast::*;
 
@@ -17,7 +18,7 @@ impl DomainParser for BooleanParser {
     fn parse_domain(&self, content: &str) -> DomainResult {
         // Parseamos SOLO la expresión interna del bloque
         let pairs = BooleanPestGrammar::parse(Rule::boolean_block, content)
-            .map_err(|e| format!("Error en lógica booleana: {}", e))?;
+            .map_err(|e| CodexError::ParseError { domain: "boolean_algebra".into(), message: format!("{}", e) })?;
 
         let root_pair = pairs.into_iter().next().unwrap(); // boolean_block
 

@@ -1,6 +1,7 @@
 use pest::Parser;
 use pest_derive::Parser;
 
+use crate::error::CodexError;
 use crate::parsers::traits::{DomainParser, DomainResult};
 use super::ast::{
     LinearAlgebraBlock, LinAlgStmt, SystemDef, MatrixData
@@ -20,7 +21,7 @@ impl DomainParser for LinearAlgebraParser {
 
     fn parse_domain(&self, content: &str) -> DomainResult {
         let pairs = LinearAlgebraPestGrammar::parse(Rule::linear_algebra_block, content)
-            .map_err(|e| format!("{}", e))?;
+            .map_err(|e| CodexError::ParseError { domain: "linear_algebra".into(), message: format!("{}", e) })?;
 
         let mut statements = Vec::new();
 

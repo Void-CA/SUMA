@@ -695,13 +695,13 @@ dependencies = [
 name = "suma_codex"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "colored",
  "insta",
  "pest",
  "pest_derive",
  "serde",
  "suma_core",
+ "thiserror",
 ]
 
 [[package]]

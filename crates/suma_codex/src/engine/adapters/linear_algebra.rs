@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use colored::*; // Necesario solo para tus logs internos de verbose
+use colored::*;
 
+use crate::error::CodexError;
 use suma_core::linear_algebra::{DenseMatrix, systems::LinearSystem};
 use crate::domains::linear_algebra::ast::{LinearAlgebraBlock, LinAlgStmt, SystemDef, QueryDef, Capability};
 
@@ -18,7 +19,7 @@ impl LinearAlgebraExecutor {
         Self { verbose, artifacts: HashMap::new() }
     }
 
-    pub fn execute<F>(&mut self, block: &LinearAlgebraBlock, mut observer: F) -> Result<(), String> 
+    pub fn execute<F>(&mut self, block: &LinearAlgebraBlock, mut observer: F) -> Result<(), CodexError> 
     where F: FnMut(&str, CodexOutput) 
     {
         for stmt in &block.statements {
@@ -98,7 +99,7 @@ impl LinearAlgebraExecutor {
     }
     // --- Lógica Interna ---
 
-    fn register_system(&mut self, def: &SystemDef) -> Result<(), String> {
+    fn register_system(&mut self, def: &SystemDef) -> Result<(), CodexError> {
         if self.verbose {
             println!("      [DEFINE] Guardando modelo '{}'", def.id.cyan());
         }
@@ -107,7 +108,7 @@ impl LinearAlgebraExecutor {
     }
 
     // Fusión de lógica: Acepta el observer y usa CodexOutput
-    fn execute_query<F>(&self, query: &QueryDef, observer: &mut F) -> Result<(), String> 
+    fn execute_query<F>(&self, query: &QueryDef, observer: &mut F) -> Result<(), CodexError> 
     where F: FnMut(&str, CodexOutput)
     {
         if self.verbose {
@@ -116,16 +117,16 @@ impl LinearAlgebraExecutor {
 
         // 1. HIDRATACIÓN (Buscar y convertir a Core)
         let system = self.artifacts.get(&query.target_id)
-            .ok_or_else(|| format!(
-                "El modelo '{}' no existe. Defínelo antes con 'LinearSystem'.", 
+            .ok_or_else(|| CodexError::ExecutionError(format!(
+                "Model '{}' does not exist. Define it first with 'LinearSystem'.", 
                 query.target_id
-            ))?;
+            )))?;
 
         // Recuperar Matriz A
         let matrix_a = if let Some(data) = &system.coefficients {
             DenseMatrix::new(data.rows, data.cols, data.data.clone())
         } else {
-            return Err(format!("El modelo '{}' no tiene coeficientes (A).", system.id));
+            return Err(CodexError::ExecutionError(format!("Model '{}' has no coefficients (A).", system.id)));
         };
 
         // 2. EJECUCIÓN DE CAPABILITIES

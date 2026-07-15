@@ -16,6 +16,6 @@ pub enum OptimizationError {
     // NonLinear(#[from] NonLinearError),
     
     // Errores genéricos del módulo de optimización (si fueran necesarios)
-    #[error("Configuración de optimizador inválida: {0}")]
+    #[error("Invalid optimizer configuration: {0}")]
     ConfigError(String),
 }

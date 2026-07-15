@@ -1,6 +1,7 @@
-use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::fmt::Write;
+
+use crate::error::CodexError;
 
 // Core Imports
 use suma_core::optimization::linear::model::{
@@ -31,7 +32,7 @@ impl OptimizationExecutor {
         }
     }
 
-    pub fn execute<F>(&mut self, block: &OptimizationBlock, observer: &mut F) -> Result<()>
+    pub fn execute<F>(&mut self, block: &OptimizationBlock, observer: &mut F) -> Result<(), CodexError>
     where F: FnMut(&str, CodexOutput) 
     {
         match block {
@@ -101,7 +102,7 @@ impl OptimizationExecutor {
     }
 
     // --- Lógica de Definición (Guardar modelo) ---
-    fn handle_definition<F>(&mut self, model: &OptimizationModel, observer: &mut F) -> Result<()>
+    fn handle_definition<F>(&mut self, model: &OptimizationModel, observer: &mut F) -> Result<(), CodexError>
     where F: FnMut(&str, CodexOutput) 
     {
         if self.verbose { println!(">> OptAdapter: Storing model '{}'", model.name); }
@@ -114,7 +115,7 @@ impl OptimizationExecutor {
 
         // 2. Linearizar Objetivo
         let obj_expr = self.linearize(&model.objective)
-            .map_err(|e| anyhow!("Error en objetivo: {}", e))?;
+            .map_err(|e| CodexError::ExecutionError(format!("Error in objective: {}", e)))?;
         
         // SIN TRUCOS: Pasamos el objetivo tal cual. El Core se encarga de invertir si es necesario.
         let objective = Objective { direction, expression: obj_expr };
@@ -124,7 +125,7 @@ impl OptimizationExecutor {
         for (i, c) in model.constraints.iter().enumerate() {
             let combined = Expr::Sub(Box::new(c.left.clone()), Box::new(c.right.clone()));
             let mut lin = self.linearize(&combined)
-                .map_err(|e| anyhow!("Error en restricción {}: {}", i, e))?;
+                .map_err(|e| CodexError::ExecutionError(format!("Error in constraint {}: {}", i, e)))?;
             
             let rhs = -lin.constant;
             lin.set_constant(0.0);
@@ -133,7 +134,7 @@ impl OptimizationExecutor {
                 "<=" => Relation::LessOrEqual,
                 ">=" => Relation::GreaterOrEqual,
                 "=" => Relation::Equal,
-                _ => return Err(anyhow!("Relación no soportada")),
+                _ => return Err(CodexError::ExecutionError("Unsupported relation".into())),
             };
             
             problem.add_constraint(Constraint::new(lin, relation, rhs).with_name(&format!("c{}", i)));
@@ -150,31 +151,31 @@ impl OptimizationExecutor {
 
     // --- Lógica de Query Específica (Legacy / Internal) ---
     // Mantenemos esto por compatibilidad con el AST específico, pero con el mismo formato limpio.
-    fn handle_query<F>(&mut self, query: &OptimizationQuery, observer: &mut F) -> Result<()>
+    fn handle_query<F>(&mut self, query: &OptimizationQuery, observer: &mut F) -> Result<(), CodexError>
     where F: FnMut(&str, CodexOutput) 
     {
         let problem = self.models.get(&query.target_id)
-            .ok_or_else(|| anyhow!("Modelo '{}' no encontrado. Defínelo antes de consultarlo.", query.target_id))?;
+            .ok_or_else(|| CodexError::ExecutionError(format!("Model '{}' not found. Define it before querying.", query.target_id)))?;
 
         if self.verbose { println!(">> OptAdapter: Querying '{}'", query.target_id); }
 
         for req in &query.requests {
             match req {
                 OptimizationRequest::Solve => {
-                    let solution = solve_primal(problem).map_err(|e| anyhow!("{}", e))?;
+                    let solution = solve_primal(problem).map_err(|e| CodexError::ExecutionError(format!("{}", e)))?;
                     
                     let mut out = String::new();
-                    writeln!(out, "{:?} (Z = {:.4})", solution.status, solution.objective_value)?;
+                    writeln!(out, "{:?} (Z = {:.4})", solution.status, solution.objective_value).unwrap();
                     for (k, v) in &solution.variables {
-                        writeln!(out, "  {} = {:.4}", k, v)?;
+                        writeln!(out, "  {} = {:.4}", k, v).unwrap();
                     }
                     observer("Result", CodexOutput::Message(out));
                 },
                 OptimizationRequest::ShadowPrices => {
-                    let solution = solve_primal(problem).map_err(|e| anyhow!("{}", e))?;
+                    let solution = solve_primal(problem).map_err(|e| CodexError::ExecutionError(format!("{}", e)))?;
                     let mut out = String::new();
                     for (k, v) in &solution.shadow_prices {
-                        writeln!(out, "  {}: {:.4}", k, v)?;
+                        writeln!(out, "  {}: {:.4}", k, v).unwrap();
                     }
                     observer("Shadow Prices", CodexOutput::Message(out));
                 },
@@ -190,7 +191,7 @@ impl OptimizationExecutor {
     }
 
     // --- Helpers de Linearización ---
-    fn linearize(&self, expr: &Expr) -> Result<LinearExpression> {
+    fn linearize(&self, expr: &Expr) -> Result<LinearExpression, CodexError> {
         let mut lin = LinearExpression::new();
         match expr {
             Expr::Const(c) => lin.set_constant(*c),
@@ -226,16 +227,16 @@ impl OptimizationExecutor {
                         self.merge_into(&mut lin, &l, c);
                     }
                 } else {
-                    return Err(anyhow!("No linealidad: multiplicación de variables"));
+                    return Err(CodexError::ExecutionError("Non-linearity: variable multiplication".into()));
                 }
             },
             Expr::Div(lhs, rhs) => {
                 if let Expr::Const(c) = **rhs {
-                    if c.abs() < 1e-9 { return Err(anyhow!("División por cero")); }
+                    if c.abs() < 1e-9 { return Err(CodexError::ExecutionError("Division by zero".into())); }
                     let l = self.linearize(lhs)?;
                     self.merge_into(&mut lin, &l, 1.0 / c);
                 } else {
-                    return Err(anyhow!("División por variable no soportada"));
+                    return Err(CodexError::ExecutionError("Division by variable not supported".into()));
                 }
             },
         }

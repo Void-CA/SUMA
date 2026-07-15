@@ -8,11 +8,11 @@ name = "suma_codex"
 path = "src/lib.rs" 
 
 [dependencies]
-anyhow = "1.0.100"
 colored = "3.0.0"
 pest = "2.8.4"
 pest_derive = "2.8.4"
 serde = { version = "1.0", features = ["derive"] }
+thiserror = "2"
 suma_core = { path = "../suma_core" }
 
 [dev-dependencies]

@@ -7,6 +7,9 @@ pub enum SumaError {
     Export(#[from] crate::formatting::error::ExportError),
 
     #[error(transparent)]
+    BooleanAlgebra(#[from] crate::boolean_algebra::error::BooleanAlgebraError),
+
+    #[error(transparent)]
     SymbolicsEval(#[from] crate::symbolics::error::EvalError),
 
     #[error(transparent)]

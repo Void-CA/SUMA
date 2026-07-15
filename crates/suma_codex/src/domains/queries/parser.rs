@@ -1,5 +1,6 @@
 use pest::Parser;
 use pest_derive::Parser;
+use crate::error::CodexError;
 use crate::parsers::traits::{DomainParser, DomainResult};
 use super::ast::{QueryBlock, QueryCommand};
 
@@ -16,7 +17,7 @@ impl DomainParser for QueryParser {
 
     fn parse_domain(&self, content: &str) -> DomainResult {
         let pairs = QueryPestGrammar::parse(Rule::query_block, content)
-            .map_err(|e| format!("{}", e))?;
+            .map_err(|e| CodexError::ParseError { domain: "queries".into(), message: format!("{}", e) })?;
 
         if let Some(root) = pairs.clone().next() {
             let mut inner = root.into_inner();
@@ -48,7 +49,7 @@ impl DomainParser for QueryParser {
 
             Ok(Box::new(QueryBlock { target_id, commands }))
         } else {
-            Err("Query inválida".to_string().into())
+            Err(CodexError::ParseError { domain: "queries".into(), message: "Invalid query".into() })
         }
     }
 }
